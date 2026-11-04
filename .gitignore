@@ -1,0 +1,59 @@
+# Secretos
+.env
+.env.*
+!.env.example
+
+# Dependencias
+node_modules/
+
+# WhatsApp y credenciales
+sessions/
+sessions*/
+auth/
+test-session/
+**/creds.json
+
+# Bases de datos y respaldos
+/database/
+/backups/
+**/backups/
+*.backup
+*.backup_*
+*.bak
+*.bak_*
+*.old
+*.pre_*
+
+# Registros y temporales
+logs/
+temp/
+*.log
+
+# Archivos grandes
+*.zip
+*.mp4
+
+# Sistemas independientes
+/rpg/
+/rpg2/
+/rpg_nuevo/
+/commands/rpg.js
+
+# Configuración privada
+/config/superadmins.js
+
+# Pruebas
+prueba.js
+test_*.js
+titans_imagen_test.html
+busqueda_rpg2.txt
+
+# Respaldos y versiones antiguas
+**/*backup*
+**/*bak*
+**/*respaldo*
+**/*before*
+**/*.duplicado
+**/*.seguro
+**/*.old
+**/_backup/

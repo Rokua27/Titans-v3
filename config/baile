@@ -1,0 +1,31 @@
+const {
+  default: makeWASocket,
+  useMultiFileAuthState,
+  DisconnectReason,
+  fetchLatestBaileysVersion
+} = require("@whiskeysockets/baileys");
+
+const P = require("pino");
+
+async function iniciarBot() {
+  const { state, saveCreds } = await useMultiFileAuthState("./sessions");
+
+  const { version } = await fetchLatestBaileysVersion();
+
+  const sock = makeWASocket({
+    version,
+    auth: state,
+    logger: P({ level: "silent" }),
+    browser: ["TitansBot v3", "Chrome", "1.0.0"]
+  });
+
+  sock.ev.on("creds.update", saveCreds);
+
+  console.log("✅ Conexión a WhatsApp preparada.");
+
+  return sock;
+}
+
+module.exports = iniciarBot;
+
+
