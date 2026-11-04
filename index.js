@@ -8,9 +8,17 @@ const { limpiarTemporales } = require("./utils/limpiarTemporales");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Variable global para el QR
 global.qrCode = null;
 
+// Comprobación de salud para Render
+app.get("/healthz", (req, res) => {
+  res.status(200).json({
+    status: "ok",
+    servicio: "Titans-v3"
+  });
+});
+
+// Página principal
 app.get("/", (req, res) => {
   if (global.qrCode) {
     res.send(`
@@ -30,36 +38,32 @@ app.get("/", (req, res) => {
 app.listen(PORT, async () => {
   console.log(`🌐 Servidor iniciado en el puerto ${PORT}`);
 
-  // 🧹 Limpieza automática de archivos temporales multimedia
   try {
     await limpiarTemporales();
   } catch (error) {
-    console.error("❌ Error en limpieza de temporales:", error.message);
+    console.error("❌ Error en limpieza:", error.message);
   }
 
   cargarComandos();
 
-  try {
-    await iniciarBot({ origen: "MANUAL" });
-  } catch (error) {
-    console.error("❌ Error al iniciar WhatsApp:", error);
-    iniciarBot.programarReconexion();
+  if (process.env.WHATSAPP_ENABLED === "true") {
+    console.log("📱 Iniciando conexión de WhatsApp...");
+
+    try {
+      await iniciarBot({ origen: "MANUAL" });
+    } catch (error) {
+      console.error("❌ Error al iniciar WhatsApp:", error);
+      iniciarBot.programarReconexion();
+    }
+  } else {
+    console.log("⏸️ WhatsApp desactivado temporalmente.");
   }
 });
 
 process.on("unhandledRejection", (reason, promise) => {
-    console.error("====================================");
-    console.error("🚨 UNHANDLED REJECTION DETECTADA");
-    console.error("Razón:", reason);
-    console.error("Promise:", promise);
-    console.error("Stack:");
-    console.error(reason?.stack || reason);
-    console.error("====================================");
+  console.error("🚨 UNHANDLED REJECTION:", reason);
 });
 
 process.on("uncaughtException", (err) => {
-    console.error("====================================");
-    console.error("💥 UNCAUGHT EXCEPTION");
-    console.error(err.stack || err);
-    console.error("====================================");
+  console.error("💥 UNCAUGHT EXCEPTION:", err.stack || err);
 });
