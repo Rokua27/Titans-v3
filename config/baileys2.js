@@ -12,54 +12,75 @@ const { iniciarComunidadBot } = require("../utils/comunidadBot/motor");
 const manejarParticipantes = require("../events/groupParticipants");
 const monitor = require("../utils/monitor");
 
-let reconectando = false;
+let reconexionProgramada = null;
+let creandoSocket = false;
+let reconexionSolicitadaDuranteInicio = false;
 let sockActual = null;
 
 let intentosReconexion = 0;
 
-    function programarReconexion() {
-        if (reconectando) {
-            console.log("⏳ Ya hay una reconexión en curso.");
-            return;
-        }
+function programarReconexion() {
+    if (reconexionProgramada) {
+        console.log("⏳ Ya existe una reconexión programada.");
+        return;
+    }
 
-        reconectando = true;
-        intentosReconexion++;
+    // Si el socket todavía se está creando, aplazamos el siguiente
+    // intento hasta conocer el resultado de esa inicialización.
+    if (creandoSocket) {
+        reconexionSolicitadaDuranteInicio = true;
+        console.log("⏳ Reconexión solicitada durante la creación del socket; queda en cola.");
+        return;
+    }
 
-        const espera =
-            Math.min(intentosReconexion * 5000, 30000);
+    intentosReconexion++;
 
-        console.log(
-            `🔄 Reconectando en ${espera / 1000} segundos...`
-        );
+    const espera =
+        Math.min(intentosReconexion * 5000, 30000);
 
-        setTimeout(async () => {
-            try {
-                console.log("🔄 Creando nuevo socket...");
+    console.log(
+        `🔄 Reconectando en ${espera / 1000} segundos...`
+    );
 
-                // 🔓 Liberar el lock antes de crear el nuevo socket.
-                // Si este socket falla posteriormente en connection.close,
-                // el cierre podrá programar una nueva reconexión.
-                reconectando = false;
+    reconexionProgramada = setTimeout(async () => {
+        reconexionProgramada = null;
+        creandoSocket = true;
 
-                await iniciarBot({ origen: "RECONEXION" });
+        try {
+            console.log("🔄 Creando nuevo socket...");
+            await iniciarBot({ origen: "RECONEXION" });
+        } catch (error) {
+            console.error(
+                "❌ Error al reconectar:",
+                error
+            );
 
-            } catch (error) {
-                reconectando = false;
+            console.log(
+                "🔁 La recuperación continuará automáticamente."
+            );
 
-                console.error(
-                    "❌ Error al reconectar:",
-                    error
-                );
+            reconexionSolicitadaDuranteInicio = true;
+        } finally {
+            creandoSocket = false;
 
-                console.log(
-                    "🔁 La recuperación continuará automáticamente."
-                );
-
+            // Si el socket falló mientras se inicializaba, se programa
+            // un único nuevo intento después de liberar el bloqueo.
+            if (reconexionSolicitadaDuranteInicio) {
+                reconexionSolicitadaDuranteInicio = false;
                 programarReconexion();
             }
-        }, espera);
+        }
+    }, espera);
+}
+
+function cancelarReconexionProgramada() {
+    if (reconexionProgramada) {
+        clearTimeout(reconexionProgramada);
+        reconexionProgramada = null;
     }
+
+    reconexionSolicitadaDuranteInicio = false;
+}
 
 async function iniciarBot({ origen = "MANUAL" } = {}) {
 
@@ -125,12 +146,18 @@ if (qr) {
 
 if (connection === "open") {
 
+    // Ignorar eventos de conexión de sockets antiguos.
+    if (sock !== sockActual) {
+        console.log("⏭️ Open ignorado: socket antiguo.");
+        return;
+    }
+
     // Limpiar QR al conectar
     global.qrCode = null;
 
-    // Reiniciar estado de reconexión
+    // Reiniciar y cancelar cualquier reintento que ya no sea necesario.
     intentosReconexion = 0;
-    reconectando = false;
+    cancelarReconexionProgramada();
 
     console.log("🟢 WhatsApp conectado");
 
@@ -250,7 +277,7 @@ console.log(
             "⚠️ Sesión cerrada. Debes escanear un nuevo QR."
         );
 
-        reconectando = false;
+        cancelarReconexionProgramada();
         return;
     }
 

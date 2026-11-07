@@ -1,3 +1,5 @@
+const fs = require("fs");
+const path = require("path");
 const { obtenerRespuesta } = require("./respuestas");
 const {
     generarRespuesta,
@@ -100,61 +102,173 @@ const intervenciones = new Map();
 // ============================================================
 
 const ARCHIVO_ESTADO_SOCIAL = "social_estado.json";
+const RUTA_ESTADO_SOCIAL = path.join(
+    __dirname,
+    "..",
+    "..",
+    "database",
+    ARCHIVO_ESTADO_SOCIAL
+);
 
 function cargarEstadoSocial() {
-    const estado = leerJSON(ARCHIVO_ESTADO_SOCIAL);
+    let contenido;
 
-    if (
-        estado &&
-        typeof estado === "object" &&
-        !Array.isArray(estado)
-    ) {
-        return estado;
+    try {
+        contenido = fs.readFileSync(RUTA_ESTADO_SOCIAL, "utf8");
+    } catch (error) {
+        if (error.code === "ENOENT") {
+            return {};
+        }
+
+        throw new Error(
+            `No se pudo leer ${ARCHIVO_ESTADO_SOCIAL}: ${error.message}`
+        );
     }
 
-    return {};
+    let estado;
+
+    try {
+        estado = JSON.parse(contenido);
+    } catch (error) {
+        throw new Error(
+            `${ARCHIVO_ESTADO_SOCIAL} contiene JSON inválido: ${error.message}`
+        );
+    }
+
+    if (
+        !estado ||
+        typeof estado !== "object" ||
+        Array.isArray(estado)
+    ) {
+        throw new Error(
+            `${ARCHIVO_ESTADO_SOCIAL} no contiene un objeto válido; se bloquean los envíos sociales.`
+        );
+    }
+
+    for (const [clave, registro] of Object.entries(estado)) {
+        if (
+            !registro ||
+            typeof registro !== "object" ||
+            Array.isArray(registro)
+        ) {
+            throw new Error(
+                `Registro social inválido (${clave}); se bloquean los envíos sociales.`
+            );
+        }
+    }
+
+    return estado;
 }
 
 function guardarEstadoSocial(estado) {
-    guardarJSON(
-        ARCHIVO_ESTADO_SOCIAL,
-        estado
-    );
+    if (
+        !estado ||
+        typeof estado !== "object" ||
+        Array.isArray(estado)
+    ) {
+        throw new Error("Se rechazó guardar un estado social inválido.");
+    }
+
+    const temporal = `${RUTA_ESTADO_SOCIAL}.${process.pid}.${Date.now()}.tmp`;
+
+    try {
+        fs.writeFileSync(
+            temporal,
+            JSON.stringify(estado, null, 2),
+            { encoding: "utf8", flag: "wx" }
+        );
+
+        fs.renameSync(temporal, RUTA_ESTADO_SOCIAL);
+    } catch (error) {
+        try {
+            if (fs.existsSync(temporal)) {
+                fs.unlinkSync(temporal);
+            }
+        } catch (errorLimpieza) {
+            console.error(
+                "❌ No se pudo limpiar el temporal del historial social:",
+                errorLimpieza.message
+            );
+        }
+
+        throw new Error(
+            `No se pudo guardar de forma segura ${ARCHIVO_ESTADO_SOCIAL}: ${error.message}`
+        );
+    }
 }
 
 function claveEstadoSocial(fecha, grupo, tipo) {
     return `${fecha}:${grupo}:${tipo}`;
 }
 
-function saludoYaEnviado(fecha, grupo, tipo) {
+function obtenerRegistroSocial(fecha, grupo, tipo) {
     const estado = cargarEstadoSocial();
-    const clave = claveEstadoSocial(
+    const clave = claveEstadoSocial(fecha, grupo, tipo);
+
+    return {
+        estado,
+        clave,
+        registro: estado[clave] || null
+    };
+}
+
+function saludoYaEnviado(fecha, grupo, tipo) {
+    const { registro } = obtenerRegistroSocial(fecha, grupo, tipo);
+
+    // Compatibilidad con el historial anterior, que guardaba enviado: true.
+    return registro?.enviado === true ||
+        ["enviando", "enviado", "incierto"].includes(registro?.estado);
+}
+
+function reservarSaludo(fecha, grupo, tipo, hora) {
+    const { estado, clave, registro } = obtenerRegistroSocial(
         fecha,
         grupo,
         tipo
     );
 
-    return estado[clave]?.enviado === true;
+    if (
+        registro?.enviado === true ||
+        ["enviando", "enviado", "incierto"].includes(registro?.estado)
+    ) {
+        return false;
+    }
+
+    estado[clave] = {
+        ...(registro || {}),
+        fecha,
+        grupo,
+        tipo,
+        hora,
+        estado: "enviando",
+        iniciadoEn: new Date().toISOString(),
+        enviado: false
+    };
+
+    // Si esta reserva no puede persistirse, no se intenta enviar.
+    guardarEstadoSocial(estado);
+    return true;
 }
 
-function marcarSaludoEnviado(fecha, grupo, tipo) {
-    const estado = cargarEstadoSocial();
-    const clave = claveEstadoSocial(
+function actualizarEstadoSaludo(fecha, grupo, tipo, nuevoEstado) {
+    const { estado, clave, registro } = obtenerRegistroSocial(
         fecha,
         grupo,
         tipo
     );
 
     estado[clave] = {
-        enviado: true,
+        ...(registro || {}),
         fecha,
         grupo,
-        tipo
+        tipo,
+        estado: nuevoEstado,
+        actualizadoEn: new Date().toISOString(),
+        enviado: nuevoEstado === "enviado"
     };
 
     guardarEstadoSocial(estado);
 }
-
 
 
 // Última respuesta cuando alguien se ríe
@@ -166,8 +280,11 @@ const COOLDOWN_RISA = 30 * 60 * 1000; // 30 minutos
 // 🛡️ ESTADO DEL MODO SOCIAL
 // ============================================================
 
-// Evita crear múltiples intervalos si WhatsApp se reconecta.
+// Mantiene una sola tarea programada y siempre usa el socket vigente.
 let intervaloSocial = null;
+let socketSocialActual = null;
+let revisionSocialEnCurso = false;
+let revisionSocialPendiente = false;
 
 // Evita inicializar el sistema social más de una vez.
 let socialIniciado = false;
@@ -262,23 +379,42 @@ function prepararHorario(fecha, grupo, tipo) {
     const clave = `${fecha}:${grupo}:${tipo}`;
 
     if (!intervenciones.has(clave)) {
-        let hora;
+        const { estado, clave: claveEstado, registro } = obtenerRegistroSocial(
+            fecha,
+            grupo,
+            tipo
+        );
 
-        if (tipo === "mañana") {
-            hora = horaAleatoria(8, 11);
-        }
+        let hora = registro?.hora;
 
-        if (tipo === "tarde") {
-            hora = horaAleatoria(14, 18);
-        }
+        if (!Number.isInteger(hora) || hora < 0 || hora > 1439) {
+            if (tipo === "mañana") {
+                hora = horaAleatoria(8, 11);
+            } else if (tipo === "tarde") {
+                hora = horaAleatoria(14, 18);
+            } else if (tipo === "noche") {
+                hora = horaAleatoria(20, 23);
+            } else {
+                throw new Error(`Franja social desconocida: ${tipo}`);
+            }
 
-        if (tipo === "noche") {
-            hora = horaAleatoria(20, 23);
+            estado[claveEstado] = {
+                ...(registro || {}),
+                fecha,
+                grupo,
+                tipo,
+                hora,
+                estado: registro?.estado || "programado",
+                enviado: registro?.enviado === true
+            };
+
+            guardarEstadoSocial(estado);
         }
 
         intervenciones.set(clave, {
             hora,
-            enviado: false
+            enviado: registro?.enviado === true ||
+                ["enviando", "enviado", "incierto"].includes(registro?.estado)
         });
     }
 
@@ -375,112 +511,147 @@ async function enviarMensaje(sock, grupo, tipo) {
 
 async function revisarMensajesSociales(sock) {
 
-    // ========================================================
-    // 🛡️ PROTECCIÓN DE CONEXIÓN WHATSAPP
-    // ========================================================
-
-    // Si el socket no está disponible, no intentamos consultar
-    // los grupos. Esto evita "Connection Closed" durante
-    // arranques o reconexiones de WhatsApp.
     if (
         !sock ||
         !sock.user ||
-        !sock.ev
+        !sock.ev ||
+        sock !== socketSocialActual
     ) {
         return;
     }
 
-    let grupos;
-
-    try {
-
-        grupos = await sock.groupFetchAllParticipating();
-
-    } catch (error) {
-
-        const mensaje =
-            String(error?.message || error || "");
-
-        // Las desconexiones temporales no deben llenar
-        // la consola con errores repetitivos.
-        if (
-            mensaje.includes("Connection Closed") ||
-            mensaje.includes("Connection closed")
-        ) {
-            return;
-        }
-
-        console.error(
-            "❌ No se pudieron obtener los grupos:",
-            mensaje
-        );
-
+    // Una sola revisión puede consultar y procesar saludos a la vez.
+    if (revisionSocialEnCurso) {
+        revisionSocialPendiente = true;
         return;
     }
 
-    const fecha = obtenerFechaBogota();
-    const hora = obtenerHoraBogota();
+    revisionSocialEnCurso = true;
 
-    // 🤖 Los mensajes sociales programados solo se envían
-    // al grupo principal.
-    const gruposProgramados = Object.keys(grupos)
-        .filter(id => id === GRUPO_PRINCIPAL);
+    try {
+        let grupos;
 
-    for (const id of gruposProgramados) {
+        try {
+            grupos = await sock.groupFetchAllParticipating();
 
-        const franjas = [
-            {
-                tipo: "mañana",
-                inicio: 8,
-                fin: 11
-            },
-            {
-                tipo: "tarde",
-                inicio: 14,
-                fin: 18
-            },
-            {
-                tipo: "noche",
-                inicio: 20,
-                fin: 23
+            if (sock !== socketSocialActual) {
+                return;
             }
-        ];
+        } catch (error) {
+            const mensaje = String(error?.message || error || "");
 
-        for (const franja of franjas) {
-            const programacion = prepararHorario(
-                fecha,
-                id,
-                franja.tipo
-            );
+            if (
+                !mensaje.includes("Connection Closed") &&
+                !mensaje.includes("Connection closed")
+            ) {
+                console.error(
+                    "❌ No se pudieron obtener los grupos:",
+                    mensaje
+                );
+            }
 
-            const persistenteEnviado =
-                saludoYaEnviado(
+            return;
+        }
+
+        const fecha = obtenerFechaBogota();
+        const hora = obtenerHoraBogota();
+
+        const gruposProgramados = Object.keys(grupos || {})
+            .filter(id => id === GRUPO_PRINCIPAL);
+
+        for (const id of gruposProgramados) {
+            if (sock !== socketSocialActual) {
+                return;
+            }
+
+            const franjas = [
+                { tipo: "mañana" },
+                { tipo: "tarde" },
+                { tipo: "noche" }
+            ];
+
+            for (const franja of franjas) {
+                if (sock !== socketSocialActual) {
+                    return;
+                }
+
+                const programacion = prepararHorario(
                     fecha,
                     id,
                     franja.tipo
                 );
 
-            if (
-                !programacion.enviado &&
-                !persistenteEnviado &&
-                hora >= programacion.hora
-            ) {
-                const enviado =
-                    await enviarMensaje(
+                const persistenteBloqueado = saludoYaEnviado(
+                    fecha,
+                    id,
+                    franja.tipo
+                );
+
+                if (
+                    !programacion.enviado &&
+                    !persistenteBloqueado &&
+                    hora >= programacion.hora
+                ) {
+                    if (sock !== socketSocialActual) {
+                        return;
+                    }
+
+                    // Reservar y persistir ANTES de llamar a WhatsApp.
+                    // Si falla el guardado, el envío no se realiza.
+                    const reservado = reservarSaludo(
+                        fecha,
+                        id,
+                        franja.tipo,
+                        programacion.hora
+                    );
+
+                    if (!reservado) {
+                        programacion.enviado = true;
+                        continue;
+                    }
+
+                    // La reserva queda bloqueada incluso si el proceso
+                    // cae durante sendMessage: no habrá reintento ciego.
+                    programacion.enviado = true;
+
+                    const enviado = await enviarMensaje(
                         sock,
                         id,
                         franja.tipo
                     );
 
-                if (enviado) {
-                    programacion.enviado = true;
-
-                    marcarSaludoEnviado(
-                        fecha,
-                        id,
-                        franja.tipo
-                    );
+                    try {
+                        actualizarEstadoSaludo(
+                            fecha,
+                            id,
+                            franja.tipo,
+                            enviado ? "enviado" : "incierto"
+                        );
+                    } catch (error) {
+                        // El estado persistido seguirá como "enviando";
+                        // también se bloquea cualquier reintento automático.
+                        console.error(
+                            "❌ No se pudo confirmar el estado del saludo social:",
+                            error.message
+                        );
+                    }
                 }
+            }
+        }
+    } catch (error) {
+        console.error(
+            "❌ Revisión social detenida por protección del historial:",
+            error.message
+        );
+    } finally {
+        revisionSocialEnCurso = false;
+
+        if (revisionSocialPendiente) {
+            revisionSocialPendiente = false;
+            const socket = socketSocialActual;
+
+            if (socket) {
+                setImmediate(() => revisarMensajesSociales(socket));
             }
         }
     }
@@ -2409,14 +2580,18 @@ function iniciarComunidadBot(sock) {
         return;
     }
 
-    // Si WhatsApp se reconecta, Baileys puede volver a llamar
-    // esta función. No debemos crear otro intervalo.
-    if (socialIniciado && intervaloSocial) {
+    // Actualizar siempre la referencia: Baileys llama esta función
+    // nuevamente cuando una conexión nueva queda abierta.
+    socketSocialActual = sock;
 
+    // Si el intervalo ya existe, se conserva y utilizará el socket nuevo.
+    if (socialIniciado && intervaloSocial) {
         console.log(
-            "ℹ️ TitansB | Modo social ya estaba iniciado."
+            "🔄 TitansB | Socket del modo social actualizado; intervalo conservado."
         );
 
+        // Primera revisión con la conexión recién abierta.
+        revisarMensajesSociales(socketSocialActual);
         return;
     }
 
@@ -2435,13 +2610,15 @@ function iniciarComunidadBot(sock) {
     // ========================================================
 
     intervaloSocial = setInterval(() => {
+        const socket = socketSocialActual;
 
-        revisarMensajesSociales(sock);
-
+        if (socket) {
+            revisarMensajesSociales(socket);
+        }
     }, 10 * 60 * 1000);
 
     // Primera revisión
-    revisarMensajesSociales(sock);
+    revisarMensajesSociales(socketSocialActual);
 }
 
 // ============================================================
