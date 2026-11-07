@@ -23,8 +23,8 @@
     "@aws-sdk/client-s3": "^3.1161.0",
     "@google/genai": "^2.18.0",
     "@hapi/boom": "^10.0.1",
-    "@whiskeysockets/baileys": "^6.7.18",
-    "axios": "^1.18.1",
+    "@whiskeysockets/baileys": "6.7.24",
+    "axios": "1.21.0",
     "cheerio": "^1.2.0",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
@@ -36,5 +36,9 @@
     "qrcode-terminal": "^0.12.0",
     "undici": "7.30.1",
     "yt-search": "^2.13.1"
+  },
+  "overrides": {
+    "proxy-addr": "2.0.8",
+    "minimatch": "3.1.5"
   }
 }
