@@ -1,6 +1,6 @@
 const monitor = require("../utils/monitor");
 const { leerJSON, guardarJSON } = require("../utils/database");
-const { obtenerUsuario, guardarUsuario } = require("../utils/comunidad");
+const { obtenerUsuario, guardarUsuario, aplicarXPRecompensa } = require("../utils/comunidad");
 
 const cooldowns = new Map();
 
@@ -134,8 +134,13 @@ ${tipo}
 
        const jugador = obtenerUsuario(id);
 
+const resultadoXP = aplicarXPRecompensa(jugador, 300);
+
+if (!resultadoXP || resultadoXP.motivo !== "otorgada") {
+  throw new Error("No se pudo aplicar la XP de recompensa del Raid.");
+}
+
 jugador.coins = (jugador.coins || 0) + 500;
-jugador.xp = (jugador.xp || 0) + 300;
 
 guardarUsuario(id, jugador);
 
