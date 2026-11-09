@@ -57,3 +57,6 @@ busqueda_rpg2.txt
 **/*.seguro
 **/*.old
 **/_backup/
+/sessions/
+/database-seed.tar.gz.b64
+/superadmins.js
