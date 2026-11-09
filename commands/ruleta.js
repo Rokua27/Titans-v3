@@ -1,6 +1,6 @@
 const monitor = require("../utils/monitor");
 const { leerJSON, guardarJSON } = require("../utils/database");
-const { obtenerUsuario, guardarUsuario } = require("../utils/comunidad");
+const { obtenerUsuario, guardarUsuario, aplicarXPRecompensa } = require("../utils/comunidad");
 const { puedeUsarComando } = require("../utils/limiteDiario");
 const { anuncioGlobal } = require("../utils/anuncios");
 
@@ -217,12 +217,24 @@ await anuncioGlobal(sock, from, "jackpot", {
       // 💳 APLICAR RECOMPENSAS
       // ======================================
 
-      usuario.coins = Math.max(0, (usuario.coins || 0) + recompensaCoins);
-      usuario.xp = (usuario.xp || 0) + recompensaXP;
+        let resultadoXP = null;
 
-      // Guardar
-guardarUsuario(sender, usuario);
-await guardarJSON("ruleta.json", dataRuleta);
+        if (recompensaXP > 0) {
+          resultadoXP = aplicarXPRecompensa(usuario, recompensaXP);
+
+          if (!resultadoXP || resultadoXP.motivo !== "otorgada") {
+            throw new Error("No se pudo aplicar la XP de la ruleta.");
+          }
+        }
+
+        usuario.coins = Math.max(
+          0,
+          (usuario.coins || 0) + recompensaCoins
+        );
+
+        // Guardar perfil y jackpot
+        guardarUsuario(sender, usuario);
+        await guardarJSON("ruleta.json", dataRuleta);
 
       // ======================================
       // ✨ MENSAJE FINAL PREMIUM
@@ -243,6 +255,9 @@ ${descripcion}
 
 💰 Monedas actuales: *${usuario.coins}*
 ⭐ XP actual: *${usuario.xp}*
+  ${resultadoXP && resultadoXP.monedasNivel > 0
+    ? `🏅 +${resultadoXP.monedasNivel} monedas por subir ${resultadoXP.nivelesGanados} nivel(es)`
+    : ""}
 🏆 Jackpot: *${dataRuleta.jackpot}*
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

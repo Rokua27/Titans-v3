@@ -1,42 +1,37 @@
 const monitor = require("../utils/monitor");
 const { leerJSON, guardarJSON } = require("../utils/database");
-const { obtenerUsuario, guardarUsuario } = require("../utils/comunidad");
+const {
+  obtenerUsuario,
+  guardarUsuario,
+  aplicarXPRecompensa
+} = require("../utils/comunidad");
 const { puedeUsarComando } = require("../utils/limiteDiario");
 const { anuncioGlobal } = require("../utils/anuncios");
 
 module.exports = {
   nombre: "abrir",
-
-alias: [],
-
-categoria: "jugador",
-
-descripcion: "Abre una caja de tu inventario.",
-
-permisos: ["usuario"],
-
-uso: "!abrir",
+  alias: [],
+  categoria: "jugador",
+  descripcion: "Abre una caja de tu inventario.",
+  permisos: ["usuario"],
+  uso: "!abrir",
 
   async ejecutar(sock, from, args, msg) {
     try {
       console.log("📦 Ejecutando comando abrir");
 
       const sender = msg.key.participant || msg.key.remoteJid;
-
-     const usuario = obtenerUsuario(sender);
+      const usuario = obtenerUsuario(sender);
       const inventarios = leerJSON("inventarios.json") || {};
 
-// ======================================
-// 🔒 LÍMITE DIARIO (3 USOS)
-// ======================================
+      // ======================================
+      // 🔒 LÍMITE DIARIO (3 USOS)
+      // ======================================
+      const limite = puedeUsarComando(sender, "abrir", 3);
 
-const limite = puedeUsarComando(sender, "abrir", 3);
-
-if (!limite.ok) {
-
-    return await sock.sendMessage(from, {
-
-        text:
+      if (!limite.ok) {
+        return await sock.sendMessage(from, {
+          text:
 `╔══════════════════════════════╗
 ║     🚫 LÍMITE ALCANZADO      ║
 ╚══════════════════════════════╝
@@ -47,14 +42,10 @@ Abrir Caja
 ❌ Ya abriste 3 cajas el día de hoy.
 
 📅 Vuelve mañana para seguir obteniendo recompensas.
-
 ━━━━━━━━━━━━━━━━━━━━━━
-
 🤖 TitansBot v3`
-
-    });
-
-}
+        });
+      }
 
       // Crear inventario si no existe
       if (!inventarios[sender]) {
@@ -89,22 +80,25 @@ Abrir Caja
         xp = 2500;
         coins = 5000;
         objeto = "Reliquia Mítica";
+
         // 🌌 ANUNCIO GLOBAL DE DROP MÍTICO
-  await anuncioGlobal(sock, from, "mitica", {
-    nombre,
-    objeto
-  });
+        await anuncioGlobal(sock, from, "mitica", {
+          nombre,
+          objeto
+        });
 
       } else if (random < 0.10) {
         rareza = "🟣 LEGENDARIA";
         xp = 1000;
         coins = 2000;
         objeto = "Corona Legendaria";
+
       } else if (random < 0.25) {
         rareza = "🔵 ÉPICA";
         xp = 400;
         coins = 800;
         objeto = "Emblema Épico";
+
       } else if (random < 0.55) {
         rareza = "🟢 RARA";
         xp = 150;
@@ -112,8 +106,17 @@ Abrir Caja
         objeto = "Boost de XP";
       }
 
-      // Aplicar recompensas
-      usuario.xp = (usuario.xp || 0) + xp;
+      // ======================================
+      // ⭐ APLICAR XP CON EL MOTOR COMPARTIDO
+      // ======================================
+      const resultadoXP = aplicarXPRecompensa(usuario, xp);
+
+      if (!resultadoXP || resultadoXP.motivo !== "otorgada") {
+        throw new Error("No se pudo aplicar la XP de la caja.");
+      }
+
+      // Aplicar monedas del premio.
+      // Las monedas por subir de nivel ya las procesa el motor compartido.
       usuario.coins = (usuario.coins || 0) + coins;
 
       // Guardar objeto
@@ -124,8 +127,8 @@ Abrir Caja
       });
 
       // Guardar archivos
-guardarUsuario(sender, usuario);
-await guardarJSON("inventarios.json", inventarios);
+      guardarUsuario(sender, usuario);
+      await guardarJSON("inventarios.json", inventarios);
 
       const mensaje = `
 ╔══════════════════════════════╗
@@ -142,9 +145,11 @@ await guardarJSON("inventarios.json", inventarios);
 
 ⭐ XP: *+${xp}*
 💰 Monedas: *+${coins}*
+${resultadoXP.nivelesGanados > 0
+  ? `🎉 Nivel alcanzado: *${usuario.nivel}*\n🪙 Monedas por subir ${resultadoXP.nivelesGanados} nivel(es): *+${resultadoXP.monedasNivel}*`
+  : ""}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
 📦 Cajas restantes: *${inventarios[sender].cajas}*
 🎒 Objetos: *${inventarios[sender].objetos.length}*
 
@@ -159,7 +164,13 @@ await guardarJSON("inventarios.json", inventarios);
 
     } catch (error) {
       console.error("❌ Error abrir:", error);
-        monitor.registrarEvento("ERROR_SISTEMA",{estado:"ERROR",componente:"ABRIR",codigo:"SYSTEM_ERROR",descripcion:error.message});
+
+      monitor.registrarEvento("ERROR_SISTEMA", {
+        estado: "ERROR",
+        componente: "ABRIR",
+        codigo: "SYSTEM_ERROR",
+        descripcion: error.message
+      });
 
       await sock.sendMessage(from, {
         text: "❌ Ocurrió un error al abrir la caja."

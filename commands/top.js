@@ -1,8 +1,58 @@
 const { leerJSON } = require("../utils/database");
+const {
+  normalizarIdentidad,
+  resolverClaveUsuario
+} = require("../utils/comunidad");
 
 function obtenerTop(usuarios, criterio, limite = 10) {
-  return Object.entries(usuarios)
-    .sort((a, b) => (b[1][criterio] || 0) - (a[1][criterio] || 0))
+  const grupos = new Map();
+
+  for (const [id, usuario] of Object.entries(usuarios)) {
+    const base = normalizarIdentidad(id);
+
+    if (!base) continue;
+
+    if (!grupos.has(base)) {
+      grupos.set(base, []);
+    }
+
+    grupos.get(base).push(id);
+  }
+
+  const unicos = [];
+
+  for (const [base, identidades] of grupos.entries()) {
+    const claveResuelta = resolverClaveUsuario(
+      identidades[0],
+      usuarios
+    );
+
+    const clave = Object.prototype.hasOwnProperty.call(
+      usuarios,
+      claveResuelta
+    )
+      ? claveResuelta
+      : identidades[0];
+
+    unicos.push([clave, usuarios[clave]]);
+  }
+
+  return unicos
+    .sort((a, b) => {
+      const valorA = Number(a[1]?.[criterio]);
+      const valorB = Number(b[1]?.[criterio]);
+
+      const numeroA = Number.isFinite(valorA) ? valorA : 0;
+      const numeroB = Number.isFinite(valorB) ? valorB : 0;
+
+      if (numeroB !== numeroA) {
+        return numeroB - numeroA;
+      }
+
+      return normalizarIdentidad(a[0]).localeCompare(
+        normalizarIdentidad(b[0])
+      );
+    })
     .slice(0, limite);
 }
 

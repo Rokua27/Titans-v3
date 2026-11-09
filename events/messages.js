@@ -5,7 +5,6 @@ const ejecutarFiltroModeracion = require("../utils/filtroModeracion");
 const { obtenerRol } = require("../utils/roles");
 const { tienePermiso, tienePermisoEquipo } = require("../utils/permisos");
 const { obtenerEquipoUsuario } = require("../utils/equipos");
-const { leerJSON } = require("../utils/database");
 const {
     agregarXP,
     actualizarNombre
@@ -46,122 +45,7 @@ async function manejarMensajes(sock, message) {
       console.log(`📌 GRUPO TITANS | ID: ${from}`);
     }
 
-    // ======================================
-  // ⭐ SISTEMA DE XP AUTOMÁTICO
-  // ======================================
-
-  // Extraer texto del mensaje
-  let textoXP = "";
-
-  if (msg.message.conversation) {
-    textoXP = msg.message.conversation;
-  } else if (msg.message.extendedTextMessage?.text) {
-    textoXP = msg.message.extendedTextMessage.text;
-  }
-
-console.log("🧪 Texto recibido:", textoXP);
-
-// ======================================
-// ⭐ SISTEMA DE XP + PERFIL + MENSAJES
-// ======================================
-
-if (textoXP && !textoXP.startsWith("!")) {
-
-  const sender = msg.key.participant || msg.key.remoteJid;
-
-const nombreUsuario =
-    msg.pushName ||
-    msg.message?.extendedTextMessage?.contextInfo?.participant ||
-    "";
-
-actualizarNombre(sender, nombreUsuario);
-
-  // Nombre real del perfil
-  const nombrePerfil = msg.pushName || "Jugador";
-
-  console.log("👤 Nombre detectado:", nombrePerfil);
-
-  // ======================================
-  // CARGAR USUARIOS
-  // ======================================
-
-const { usuario, subioNivel } = await agregarXP(sender, 5);
-
-const usuarios = leerJSON("usuarios.json") || {};
-
-actualizarNombre(sender, nombrePerfil);
-
-const usuarioActual = usuarios[sender] || usuario;
-
-console.log("⭐ Dando XP a:", sender);
-console.log("📈 XP actual:", usuarioActual.xp);
-
-  // ======================================
-  // 🎉 ANUNCIO DE LEVEL UP
-  // ======================================
-
-  if (subioNivel) {
-
-    await sock.sendMessage(from, {
-      text:
-`╔══════════════════════════════╗
-║      🎉 𝗟𝗘𝗩𝗘𝗟 𝗨𝗣 🎉       ║
-╚══════════════════════════════╝
-
-👑 *¡UN TITÁN HA EVOLUCIONADO!*
-
-🎮 Usuario: *${nombrePerfil}*
-🏅 Nuevo nivel: *${usuarioActual.nivel}*
-💰 Recompensa: *+100 monedas*
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-⚔️ Sigue participando para convertirte en una leyenda de la comunidad.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🏆 𝗟𝗜𝗚𝗔 𝗧𝗜𝗧𝗔𝗡𝗦 𝗧𝗘𝗔𝗠
-	🌟 Sistema de progresión Premium Esports
-🤖 𝗧𝗶𝘁𝗮𝗻𝘀𝗕𝗼𝘁 𝘃𝟯
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
-    });
-  }
-
-
-
-  // 👑 ASCENSOS LEGENDARIOS
-
-  // Nivel 10 → Guerrero Legendario
-if (usuarioActual.nivel >= 10) {
-
-    const resultado10 = desbloquearLogro(sender, "nivel_10");
-
-    if (resultado10.nuevo) {
-
-      await anuncioGlobal(sock, from, "logro", {
-nombre: usuarioActual.nombre || "Titán",
-        logro: resultado10.logro.nombre,
-        titulo: obtenerTitulo(sender)
-      });
-    }
-  }
-
-  // Nivel 25 → Titán Supremo
-if (usuarioActual.nivel >= 25) {
-
-    const resultado25 = desbloquearLogro(sender, "nivel_25");
-
-    if (resultado25.nuevo) {
-
-      await anuncioGlobal(sock, from, "logro", {
-nombre: usuarioActual.nombre || "Titán",
-        logro: resultado25.logro.nombre,
-        titulo: obtenerTitulo(sender)
-      });
-    }
-  }
-
- } // ======================================
-  // 🔇 SISTEMA DE MUTE AUTOMÁTICO
+    // 🔇 SISTEMA DE MUTE AUTOMÁTICO
   // ======================================
 
     // ======================================
@@ -202,6 +86,94 @@ nombre: usuarioActual.nombre || "Titán",
 const mensajeBloqueado = await ejecutarFiltroModeracion(sock, msg);
 
 if (mensajeBloqueado) return;
+
+  // ======================================
+  const identidadParticipanteXP = [
+    msg.key?.participant,
+    msg.key?.participantLid,
+    msg.key?.participantPn
+].find(id =>
+    typeof id === 'string' &&
+    id === id.trim() &&
+    /^[^@\s]+@(?:lid|s\.whatsapp\.net|c\.us)$/i.test(id)
+);
+
+// ⭐ SISTEMA DE XP AUTOMÁTICO TITANSB
+  // ======================================
+  if (from && from.endsWith('@g.us') && identidadParticipanteXP) {
+    let textoXP = '';
+
+    if (msg.message.conversation) {
+      textoXP = msg.message.conversation;
+    } else if (msg.message.extendedTextMessage?.text) {
+      textoXP = msg.message.extendedTextMessage.text;
+    }
+
+    textoXP = textoXP.trim();
+
+    if (textoXP && !textoXP.startsWith('!')) {
+      const nombrePerfil = msg.pushName || 'Jugador';
+      actualizarNombre(identidadParticipanteXP, nombrePerfil);
+
+      const resultadoXP = await agregarXP(identidadParticipanteXP, 5, {
+        messageId: msg.key.id
+      });
+
+      const usuarioActual = resultadoXP.usuario;
+
+      if (resultadoXP.motivo === 'otorgada' && usuarioActual) {
+        console.log('⭐ XP otorgada a:', identidadParticipanteXP);
+        console.log('📈 XP actual:', usuarioActual.xp);
+
+        if (resultadoXP.subioNivel) {
+          await sock.sendMessage(from, {
+            text:
+              `╔══════════════════════════════╗
+║      🎉 𝗟𝗘𝗩𝗘𝗟 𝗨𝗣 🎉       ║
+╚══════════════════════════════╝
+
+👑 *¡UN TITÁN HA EVOLUCIONADO!*
+
+🎮 Usuario: *${nombrePerfil}*
+🏅 Nuevo nivel: *${usuarioActual.nivel}*
+💰 Recompensa: *+${resultadoXP.monedasNivel} monedas*
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚔️ Sigue participando para convertirte en una leyenda de la comunidad.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🏆 𝗟𝗜𝗚𝗔 𝗧𝗜𝗧𝗔𝗡𝗦 𝗧𝗘𝗔𝗠
+🌟 Sistema de progresión Premium Esports
+🤖 𝗧𝗶𝘁𝗮𝗻𝘀𝗕𝗼𝘁 𝘃𝟯
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
+          });
+        }
+
+        // Nivel 10 → Guerrero Legendario
+        if (usuarioActual.nivel >= 10) {
+          const resultado10 = desbloquearLogro(identidadParticipanteXP, 'nivel_10');
+          if (resultado10.nuevo) {
+            await anuncioGlobal(sock, from, 'logro', {
+              nombre: usuarioActual.nombre || 'Titán',
+              logro: resultado10.logro.nombre,
+              titulo: obtenerTitulo(identidadParticipanteXP)
+            });
+          }
+        }
+
+        // Nivel 25 → Titán Supremo
+        if (usuarioActual.nivel >= 25) {
+          const resultado25 = desbloquearLogro(identidadParticipanteXP, 'nivel_25');
+          if (resultado25.nuevo) {
+            await anuncioGlobal(sock, from, 'logro', {
+              nombre: usuarioActual.nombre || 'Titán',
+              logro: resultado25.logro.nombre,
+              titulo: obtenerTitulo(identidadParticipanteXP)
+            });
+          }
+        }
+      }
+    }
+  }
 
 // ======================================
 // 🔐 RESPUESTAS DE REGISTRO EN CHAT PRIVADO

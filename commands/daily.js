@@ -1,4 +1,4 @@
-const { obtenerUsuario, guardarUsuario } = require("../utils/comunidad");
+const { obtenerUsuario, guardarUsuario, aplicarXPRecompensa } = require("../utils/comunidad");
 
 module.exports = {
   nombre: "daily",
@@ -72,14 +72,24 @@ alias: [],
       }
 
       // ======================================
-      // 🎁 RECOMPENSAS
+      // 🎁 RECOMPENSAS APROBADAS
       // ======================================
 
-      const recompensaCoins = 500 + (usuario.racha * 50);
-      const recompensaXP = 25 + (usuario.racha * 5);
+      const bonusRacha =
+        usuario.racha >= 14 ? 75 :
+        usuario.racha >= 7 ? 50 :
+        usuario.racha >= 4 ? 25 : 0;
+
+      const recompensaCoins = 300 + bonusRacha;
+      const recompensaXP = 25;
+
+      const resultadoXP = aplicarXPRecompensa(usuario, recompensaXP);
+
+      if (!resultadoXP || resultadoXP.motivo !== "otorgada") {
+        throw new Error("No se pudo aplicar la XP de la recompensa diaria.");
+      }
 
       usuario.coins += recompensaCoins;
-      usuario.xp += recompensaXP;
       usuario.daily = ahora;
 
       guardarUsuario(sender, usuario);
@@ -100,6 +110,9 @@ alias: [],
 
 💰 +${recompensaCoins} monedas
 ⭐ +${recompensaXP} XP
+${resultadoXP.monedasNivel > 0
+  ? `🏅 +${resultadoXP.monedasNivel} monedas por subir ${resultadoXP.nivelesGanados} nivel(es)`
+  : ""}
 🔥 Racha diaria: *${usuario.racha} días*
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

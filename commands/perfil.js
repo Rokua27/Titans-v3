@@ -3,6 +3,7 @@
 const fs = require("fs");
 const path = require("path");
 const { leerJSON } = require("../utils/database");
+const { resolverClaveUsuario } = require("../utils/comunidad");
 const { obtenerTitulo, obtenerLogros } = require("../utils/logros");
 const { obtenerRol } = require("../utils/roles");
 const {
@@ -262,7 +263,11 @@ module.exports = {
             }
 
             const usuarios = leerJSON("usuarios.json") || {};
-            const usuario = usuarios[identidad];
+            const claveUsuario = resolverClaveUsuario(identidad, usuarios);
+            const usuario = claveUsuario &&
+                Object.prototype.hasOwnProperty.call(usuarios, claveUsuario)
+                ? usuarios[claveUsuario]
+                : null;
 
             if (!perfilCompetitivo) {
                 const nombrePendiente = textoSeguro(

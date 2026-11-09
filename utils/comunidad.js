@@ -1,13 +1,11 @@
 const { leerJSON, guardarJSON } = require("./database");
 
 // ==========================================
-// Cooldown de XP
-// ==========================================
-
-const cooldownXP = {};
-const TIEMPO_XP = 60000; // 60 segundos
-
-// ==========================================
+// CONFIGURACIÓN DEL SISTEMA DE XP
+const TIEMPO_XP = 60000;
+const XP_POR_MENSAJE = 5;
+const MAX_XP_DIARIA = 100;
+const ZONA_HORARIA_XP = "America/Bogota";
 // IDENTIDAD CANÓNICA
 // ==========================================
 
@@ -234,63 +232,113 @@ function obtenerNombreUsuario(id) {
 // XP necesaria
 // ==========================================
 
+function obtenerFechaColombia(timestamp = Date.now()) {
+    const partes = new Intl.DateTimeFormat('en-US', {
+        timeZone: ZONA_HORARIA_XP,
+        year: 'numeric', month: '2-digit', day: '2-digit'
+    }).formatToParts(new Date(timestamp));
+    const valores = Object.fromEntries(partes.map(p => [p.type, p.value]));
+    return valores.year + '-' + valores.month + '-' + valores.day;
+}
+
 function xpNecesaria(nivel) {
-
     return nivel * 100;
-
 }
 
 // ==========================================
 // Agregar XP
 // ==========================================
 
-async function agregarXP(id, cantidad = 5) {
+async function agregarXP(id, cantidad = XP_POR_MENSAJE, opciones = {}) {
+    const usuario = obtenerUsuario(id);
+    if (!usuario) return { usuario: null, subioNivel: false, xpOtorgada: 0, nivelesGanados: 0, monedasNivel: 0, motivo: 'identidad_invalida' };
+    const solicitada = Math.floor(Number(cantidad));
+    if (!Number.isFinite(solicitada) || solicitada <= 0) return { usuario, subioNivel: false, xpOtorgada: 0, nivelesGanados: 0, monedasNivel: 0, motivo: 'cantidad_invalida' };
+    const ahora = Number.isFinite(opciones.ahora) ? opciones.ahora : Date.now();
+    const messageId = opciones.messageId ? String(opciones.messageId) : null;
+    if (messageId && usuario.xpUltimoMensajeId === messageId) return { usuario, subioNivel: false, xpOtorgada: 0, nivelesGanados: 0, monedasNivel: 0, motivo: 'mensaje_duplicado' };
+    const fechaHoy = obtenerFechaColombia(ahora);
+    let xpDiariaActual = Math.max(0, Number(usuario.xpDiario) || 0);
+    if (usuario.xpFechaColombia !== fechaHoy) xpDiariaActual = 0;
+    const ultimaXP = Number(usuario.xpUltimoMensajeAt) || 0;
+    if (ultimaXP > 0 && ahora - ultimaXP < TIEMPO_XP) return { usuario, subioNivel: false, xpOtorgada: 0, nivelesGanados: 0, monedasNivel: 0, motivo: 'cooldown' };
+    const xpOtorgada = Math.min(solicitada, Math.max(0, MAX_XP_DIARIA - xpDiariaActual));
+    if (xpOtorgada <= 0) return { usuario, subioNivel: false, xpOtorgada: 0, nivelesGanados: 0, monedasNivel: 0, motivo: 'limite_diario' };
+    usuario.xp = Math.max(0, Number(usuario.xp) || 0) + xpOtorgada;
+    usuario.nivel = Math.max(1, Number(usuario.nivel) || 1);
+    usuario.coins = Math.max(0, Number(usuario.coins) || 0);
+    usuario.mensajes = Math.max(0, Number(usuario.mensajes) || 0) + 1;
+    usuario.xpFechaColombia = fechaHoy;
+    usuario.xpDiario = xpDiariaActual + xpOtorgada;
+    usuario.xpUltimoMensajeAt = ahora;
+    if (messageId) usuario.xpUltimoMensajeId = messageId;
+    let nivelesGanados = 0;
+    while (usuario.xp >= xpNecesaria(usuario.nivel)) {
+        usuario.xp -= xpNecesaria(usuario.nivel);
+        usuario.nivel++;
+        usuario.coins += 50;
+        nivelesGanados++;
+    }
+    await guardarUsuario(id, usuario);
+    return { usuario, subioNivel: nivelesGanados > 0, xpOtorgada, nivelesGanados, monedasNivel: nivelesGanados * 50, motivo: 'otorgada' };
+}
+// ==========================================
+// Aplicar XP de recompensas especiales
+// No consume el límite ni el cooldown de mensajes.
+// No guarda el perfil: el comando que la utiliza
+// debe guardar el usuario junto con sus recompensas.
+// ==========================================
 
-    const ahora = Date.now();
-
-    if (
-        cooldownXP[id] &&
-        ahora - cooldownXP[id] < TIEMPO_XP
-    ) {
-
+function aplicarXPRecompensa(usuario, cantidad) {
+    if (!usuario || typeof usuario !== "object") {
         return {
-            usuario: obtenerUsuario(id),
-            subioNivel: false
+            usuario: null,
+            xpOtorgada: 0,
+            nivelesGanados: 0,
+            monedasNivel: 0,
+            subioNivel: false,
+            motivo: "usuario_invalido"
         };
-
     }
 
-    cooldownXP[id] = ahora;
+    const solicitada = Math.floor(Number(cantidad));
 
-    const usuario = obtenerUsuario(id);
+    if (!Number.isFinite(solicitada) || solicitada <= 0) {
+        return {
+            usuario,
+            xpOtorgada: 0,
+            nivelesGanados: 0,
+            monedasNivel: 0,
+            subioNivel: false,
+            motivo: "cantidad_invalida"
+        };
+    }
 
-    usuario.xp += cantidad;
-    usuario.mensajes += 1;
+    usuario.xp = Math.max(0, Number(usuario.xp) || 0);
+    usuario.nivel = Math.max(1, Math.floor(Number(usuario.nivel) || 1));
+    usuario.coins = Math.max(0, Number(usuario.coins) || 0);
 
-    let subioNivel = false;
+    usuario.xp += solicitada;
+
+    let nivelesGanados = 0;
 
     while (usuario.xp >= xpNecesaria(usuario.nivel)) {
-
         usuario.xp -= xpNecesaria(usuario.nivel);
-
         usuario.nivel++;
-
-        usuario.coins += 100;
-
-        subioNivel = true;
-
+        usuario.coins += 50;
+        nivelesGanados++;
     }
-
-await guardarUsuario(id, usuario);
 
     return {
         usuario,
-        subioNivel
+        xpOtorgada: solicitada,
+        nivelesGanados,
+        monedasNivel: nivelesGanados * 50,
+        subioNivel: nivelesGanados > 0,
+        motivo: "otorgada"
     };
-
 }
 
-// ==========================================
 // Formatear número
 // ==========================================
 
@@ -318,8 +366,10 @@ module.exports = {
     obtenerNombre,
     obtenerNombreUsuario,
 
+    aplicarXPRecompensa,
     agregarXP,
     xpNecesaria,
+    obtenerFechaColombia,
 
     formatearNumero
 
