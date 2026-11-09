@@ -1,4 +1,3 @@
-const { leerJSON, guardarJSON } = require("../../utils/database");
 const { esFundador } = require("../../utils/moderacion");
 
 module.exports = {
@@ -9,7 +8,7 @@ module.exports = {
 
     categoria: "admin",
 
-    descripcion: "Reinicia el XP, nivel y mensajes de todos los usuarios.",
+    descripcion: "Protege la progresión permanente de TitansB.",
 
     permisos: ["fundador"],
 
@@ -27,43 +26,27 @@ module.exports = {
 
         }
 
-        const usuarios = leerJSON("usuarios.json") || {};
-       guardarJSON("usuarios.json", usuarios);
-
-        let total = 0;
-
-        for (const id of Object.keys(usuarios)) {
-
-            usuarios[id].xp = 0;
-            usuarios[id].nivel = 1;
-            usuarios[id].mensajes = 0;
-
-            total++;
-
-        }
-
-        guardarJSON("usuarios.json", usuarios);
-
         await sock.sendMessage(from, {
 
             text:
-`╔══════════════════════╗
-║   🏆 NUEVA TEMPORADA  ║
-╚══════════════════════╝
+`╔════════════════════════════╗
+║   🛡️ PROGRESIÓN PROTEGIDA  ║
+╚════════════════════════════╝
 
-✅ XP reiniciado correctamente.
+⚠️ El reinicio de XP y niveles permanentes está deshabilitado.
 
-📊 Usuarios reiniciados:
-${total}
-
-🔄 Se conservaron:
+🔒 Se conservan:
+⭐ Nivel y XP permanente
 💰 Monedas
 🎒 Inventario
 🏅 Logros
 🔥 Rachas
-👤 Datos de usuario
+📊 Estadísticas de usuario
 
-⚔️ TitansBot v3`
+✅ No se modificó ningún perfil.
+
+🛡️ Sistema de progresión TitansB
+🤖 TitansBot`
 
         });
 
