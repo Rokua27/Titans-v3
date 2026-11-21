@@ -18,7 +18,18 @@ uso: "!raid",
     try {
       const sender = msg.key.participant || msg.key.remoteJid;
       const usuarios = leerJSON("usuarios.json") || {};
-      const raid = leerJSON("raid.json");
+      const raid = leerJSON("raid.json") || {};
+
+      if (raid.estadoRecompensas === "pendiente") {
+        return await sock.sendMessage(from, {
+          text:
+`⚠️ Hay recompensas de un Raid anterior pendientes de confirmar.
+
+🛡️ No se iniciará otro jefe para proteger las recompensas de los participantes.
+
+Usa *!golpear* para reintentar la entrega pendiente.`
+        });
+      }
 
       if (raid.activo) {
         return await sock.sendMessage(from, {
@@ -40,6 +51,7 @@ Usa *!golpear* para atacar.`
       raid.participantes = {};
       raid.iniciadoPor = sender;
       raid.fechaInicio = Date.now();
+      raid.estadoRecompensas = null;
 
       guardarJSON("raid.json", raid);
 

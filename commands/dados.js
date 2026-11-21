@@ -1,5 +1,5 @@
-const { leerJSON, guardarJSON } = require("../utils/database");
 const { obtenerNombreUsuario } = require("../utils/comunidad");
+const { jugarDados } = require("../utils/juegosEconomia");
 
 const APUESTA_MINIMA = 50;
 
@@ -11,12 +11,15 @@ module.exports = {
     permisos: ["usuario"],
 
     async ejecutar(sock, from, args, msg) {
+        let transaccionConfirmada = false;
+
         try {
             const sender = msg.key.participant || msg.key.remoteJid;
+            const messageId = msg.key.id;
             const nombreJugador = obtenerNombreUsuario(sender) || "Jugador";
             const apuesta = Number(args[0]);
 
-            if (!Number.isFinite(apuesta) || apuesta < APUESTA_MINIMA) {
+            if (!Number.isSafeInteger(apuesta) || apuesta < APUESTA_MINIMA) {
                 return await sock.sendMessage(from, {
                     text:
 `🎲 𝗧𝗜𝗧𝗔𝗡𝗦 𝗗𝗔𝗗𝗢𝗦
@@ -28,82 +31,66 @@ Ejemplo:
                 });
             }
 
-            if (!Number.isInteger(apuesta)) {
-                return await sock.sendMessage(from, {
-                    text: "❌ La apuesta debe ser un número entero."
-                });
-            }
+            const dadoJugador = Math.floor(Math.random() * 6) + 1;
+            const dadoTitans = Math.floor(Math.random() * 6) + 1;
 
-            const usuarios = leerJSON("usuarios.json") || {};
+            const operacion = await jugarDados(
+                sender,
+                messageId,
+                apuesta,
+                dadoJugador,
+                dadoTitans
+            );
 
-            if (!usuarios[sender]) {
-                usuarios[sender] = {
-                    coins: 0
-                };
-            }
+            if (operacion.duplicada) return;
 
-            const usuario = usuarios[sender];
-            usuario.coins = Number(usuario.coins) || 0;
+            if (!operacion.ok) {
+                if (operacion.motivo === "limite") {
+                    return await sock.sendMessage(from, {
+                        text:
+`🎲 𝗟𝗜́𝗠𝗜𝗧𝗘 𝗗𝗜𝗔𝗥𝗜𝗢
 
-            if (usuario.coins < apuesta) {
+Ya utilizaste tus 3 partidas de Dados de hoy.
+
+⏰ El contador se reinicia a las 00:00, hora de Colombia.
+🎮 Puedes seguir jugando los otros juegos del casino.`
+                    });
+                }
+
                 return await sock.sendMessage(from, {
                     text:
 `❌ 𝗠𝗢𝗡𝗘𝗗𝗔𝗦 𝗜𝗡𝗦𝗨𝗙𝗜𝗖𝗜𝗘𝗡𝗧𝗘𝗦
 
 💰 Apuesta: ${apuesta}
-💰 Tu saldo: ${usuario.coins}
+💰 Tu saldo: ${operacion.saldo}
 
 🎁 Usa !daily para conseguir monedas.`
                 });
             }
 
-            // Cobrar la apuesta
-            usuario.coins -= apuesta;
+            transaccionConfirmada = true;
 
-            // Lanzamientos
-            const dadoJugador = Math.floor(Math.random() * 6) + 1;
-            const dadoTitans = Math.floor(Math.random() * 6) + 1;
+            const resultado = operacion.resultado;
 
-            let premio = 0;
-            let resultado;
-            let cambio;
+            let textoResultado;
 
-            if (dadoJugador > dadoTitans) {
-                // Victoria: devuelve 2x la apuesta
-                premio = apuesta * 2;
-                usuario.coins += premio;
-                cambio = apuesta;
-
-                resultado =
+            if (resultado.gano) {
+                textoResultado =
 `🔥 𝗩𝗜𝗖𝗧𝗢𝗥𝗜𝗔
-
 ¡${nombreJugador} ganó el duelo! ⚔️
-💰 Premio: +${premio} monedas
-📈 Ganancia: +${cambio} monedas`;
-            } else if (dadoJugador < dadoTitans) {
-                // Derrota: pierde la apuesta
-                premio = 0;
-                cambio = -apuesta;
-
-                resultado =
+💰 Premio: +${resultado.premio} monedas
+📈 Ganancia: +${resultado.cambio} monedas`;
+            } else if (resultado.perdio) {
+                textoResultado =
 `💀 𝗗𝗘𝗥𝗥𝗢𝗧𝗔
-
 TitansB ganó esta ronda. 🤖
-💸 Pérdida: -${apuesta} monedas`;
+💸 Pérdida: -${resultado.apuesta} monedas`;
             } else {
-                // Empate: devuelve la apuesta
-                premio = apuesta;
-                usuario.coins += premio;
-                cambio = 0;
-
-                resultado =
+                textoResultado =
 `⚖️ 𝗘𝗠𝗣𝗔𝗧𝗘
-
 Los dos sacaron el mismo número.
 💰 Tu apuesta ha sido devuelta.`;
             }
-
-            guardarJSON("usuarios.json", usuarios);
 
             await sock.sendMessage(from, {
                 text:
@@ -112,16 +99,16 @@ Los dos sacaron el mismo número.
 ╚══════════════════════════════╝
 
 👤 ${nombreJugador}
-🎲 Resultado: ${dadoJugador}
+🎲 Resultado: ${resultado.dadoJugador}
 
 🤖 𝗧𝗜𝗧𝗔𝗡𝗦𝗕
-🎲 Resultado: ${dadoTitans}
+🎲 Resultado: ${resultado.dadoTitans}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-${resultado}
+${textoResultado}
 
-💰 Saldo actual: ${usuario.coins} monedas
+💰 Saldo actual: ${resultado.coins} monedas
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🎁 !daily    • Recompensa diaria
@@ -137,9 +124,11 @@ ${resultado}
         } catch (error) {
             console.error("❌ Error en dados:", error);
 
-            await sock.sendMessage(from, {
-                text: "❌ No fue posible ejecutar Titans Dados."
-            });
+            if (!transaccionConfirmada) {
+                await sock.sendMessage(from, {
+                    text: "❌ No fue posible ejecutar Titans Dados."
+                });
+            }
         }
     }
 };

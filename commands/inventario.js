@@ -1,70 +1,90 @@
+"use strict";
+
 const { leerJSON } = require("../utils/database");
+const { resolverClaveUsuario } = require("../utils/comunidad");
+const { resolverInventario } = require("../utils/inventarioTitansB");
 
 module.exports = {
-  nombre: "inventario",
+    nombre: "inventario",
+    categoria: "jugador",
+    descripcion: "Muestra tu inventario.",
+    uso: "!inventario",
+    permisos: ["usuario"],
+    alias: [],
 
-categoria: "jugador",
+    async ejecutar(sock, from, args, msg) {
+        try {
+            const sender = msg.key.participant || msg.key.remoteJid;
 
-descripcion: "Muestra tu inventario.",
+            const usuarios = leerJSON("usuarios.json") || {};
+            const inventarios = leerJSON("inventarios.json") || {};
 
-uso: "!inventario",
+            const claveUsuario = resolverClaveUsuario(sender, usuarios);
+            const usuario = claveUsuario ? usuarios[claveUsuario] : null;
 
-permisos: ["usuario"],
+            const resuelto = resolverInventario(sender, inventarios);
 
-alias: [],
+            if (!resuelto.ok) {
+                return await sock.sendMessage(from, {
+                    text:
+                        "⚠️ No puedo determinar tu inventario con seguridad. " +
+                        "No se realizó ningún cambio. Contacta a administración."
+                });
+            }
 
-  async ejecutar(sock, from, args, msg) {
-    try {
-      const sender = msg.key.participant || msg.key.remoteJid;
+            const inv = resuelto.inventario;
+            const cantidades = inv.cajasPorRareza;
 
-      const usuarios = leerJSON("usuarios.json") || {};
-      const inventarios = leerJSON("inventarios.json") || {};
+            const ultimos = inv.objetos.slice(-5).reverse();
 
-      const usuario = usuarios[sender];
-      const inv = inventarios[sender] || { cajas: 0, objetos: [] };
+            const lista = ultimos.length === 0
+                ? "📭 No tienes objetos todavía."
+                : ultimos.map((obj, i) =>
+                    `${i + 1}. ${obj.nombre || "Objeto"}${obj.rareza ? ` — ${obj.rareza}` : ""}`
+                ).join("\n");
 
-      // Últimos 5 objetos
-      const ultimos = inv.objetos.slice(-5).reverse();
+            const mensaje =
+`📢 *TITANS TEAM · INVENTARIO*
 
-      let lista = "";
-
-      if (ultimos.length === 0) {
-        lista = "📭 No tienes objetos todavía.";
-      } else {
-        ultimos.forEach((obj, i) => {
-          lista += `${i + 1}. ${obj.nombre}\n`;
-        });
-      }
-
-      const mensaje =
-`╔══════════════════════════════╗
-║      🎒 𝗜𝗡𝗩𝗘𝗡𝗧𝗔𝗥𝗜𝗢 🎒       ║
+╔══════════════════════════════╗
+║        🎒 INVENTARIO        ║
 ╚══════════════════════════════╝
 
 👤 *${usuario?.nombre || "Titán"}*
 
-📦 Cajas: *${inv.cajas}*
-🎁 Objetos: *${inv.objetos.length}*
+📦 *CAJAS GENÉRICAS*
+${inv.cajas}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-📜 *Últimos objetos*
+🎁 *CAJAS POR RAREZA*
 
+⚪ Comunes: *${cantidades.comun} / 10*
+🟢 Raras: *${cantidades.rara} / 10*
+🔵 Épicas: *${cantidades.epica} / 10*
+🟣 Legendarias: *${cantidades.legendaria} / 10*
+🟡 Especiales: *${cantidades.especial} / 10*
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎖️ Objetos registrados: *${inv.objetos.length}*
+
+📜 *Últimos objetos*
 ${lista}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🏆 𝗟𝗜𝗚𝗔 𝗧𝗜𝗧𝗔𝗡𝗦 𝗧𝗘𝗔𝗠
-🤖 𝗧𝗶𝘁𝗮𝗻𝘀𝗕𝗼𝘁 𝘃𝟯
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
 
-      await sock.sendMessage(from, { text: mensaje });
+🛡️ *Sistema de Inventario Titans Team*
+🤖 *TitansB  Miembro Virtual*`;
 
-    } catch (error) {
-      console.error("❌ Error inventario:", error);
+            await sock.sendMessage(from, { text: mensaje });
 
-      await sock.sendMessage(from, {
-        text: "❌ No pude mostrar el inventario."
-      });
+        } catch (error) {
+            console.error("❌ Error inventario:", error);
+
+            await sock.sendMessage(from, {
+                text: "❌ No pude mostrar el inventario."
+            });
+        }
     }
-  }
 };

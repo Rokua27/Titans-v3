@@ -22,14 +22,17 @@ function cargarCarpeta(carpeta) {
 
         if (!archivo.endsWith(".js")) continue;
 
-        // Ignorar TODOS los archivos de respaldo
+        // Ignorar archivos de respaldo y temporales de integración/verificación
         if (
             archivo.includes("_backup") ||
             archivo.includes(".backup") ||
             archivo.includes("_pre_") ||
-            archivo.endsWith(".bak.js")
+            archivo.endsWith(".bak.js") ||
+            archivo.includes(".tmp.") ||
+            archivo.endsWith(".integracion.js") ||
+            archivo.endsWith(".verificacion.js")
         ) {
-            console.log(`⏭️ Ignorado respaldo: ${archivo}`);
+            console.log(`⏭️ Ignorado respaldo/temporal: ${archivo}`);
             continue;
         }
 

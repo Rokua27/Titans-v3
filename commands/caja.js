@@ -1,138 +1,186 @@
+"use strict";
+
 const monitor = require("../utils/monitor");
-const { leerJSON, guardarJSON } = require("../utils/database");
-const { obtenerUsuario, guardarUsuario } = require("../utils/comunidad");
-const { puedeUsarComando } = require("../utils/limiteDiario");
+const {
+    comprarCaja,
+    PRECIOS_CAJAS
+} = require("../utils/cajasEconomia");
+
+const RAREZAS = {
+    comun: "comun",
+    común: "comun",
+    rara: "rara",
+    epica: "epica",
+    épica: "epica",
+    legendaria: "legendaria",
+    especial: "especial"
+};
+
+const NOMBRES = {
+    comun: "Común",
+    rara: "Rara",
+    epica: "Épica",
+    legendaria: "Legendaria",
+    especial: "Especial"
+};
 
 module.exports = {
-  nombre: "caja",
+    nombre: "caja",
+    alias: [],
+    categoria: "jugador",
+    descripcion: "Compra una caja misteriosa por rareza.",
+    permisos: ["usuario"],
+    uso: "!caja [comun|rara|epica|legendaria|especial]",
 
-alias: [],
+    async ejecutar(sock, from, args, msg) {
+        try {
+            const sender = msg.key.participant || msg.key.remoteJid;
+            const messageId = msg.key.id;
 
-categoria: "jugador",
+            const entrada = String(args?.[0] || "comun")
+                .trim()
+                .toLowerCase();
 
-descripcion: "Compra una caja misteriosa.",
+            const rareza = RAREZAS[entrada];
 
-permisos: ["usuario"],
+            if (!rareza) {
+                return await sock.sendMessage(from, {
+                    text:
+`📢 *TITANS TEAM · TIENDA DE CAJAS*
 
-uso: "!caja",
+❌ Rareza no válida.
 
-  async ejecutar(sock, from, args, msg) {
-    try {
-      const sender = msg.key.participant || msg.key.remoteJid;
+📦 Disponibles:
+⚪ Común: 1.500 monedas
+🟢 Rara: 3.500 monedas
+🔵 Épica: 7.500 monedas
+🟣 Legendaria: 15.000 monedas
+🟡 Especial: 30.000 monedas
 
-const usuario = obtenerUsuario(sender);
-      const inventarios = leerJSON("inventarios.json") || {};
+Usa: *!caja rareza*
 
-// ======================================
-// 🔒 LÍMITE DIARIO (3 USOS)
-// ======================================
+🛡️ *Sistema de Economía Titans Team*
+🤖 *TitansB  Miembro Virtual*`
+                });
+            }
 
-const limite = puedeUsarComando(sender, "caja", 3);
+            const compra = await comprarCaja(
+                sender,
+                messageId,
+                rareza
+            );
 
-if (!limite.ok) {
+            if (compra.duplicada) {
+                console.log("ℹ️ Compra repetida: no se vuelve a confirmar.");
+                return;
+            }
 
-    return await sock.sendMessage(from, {
+            if (!compra.ok && compra.motivo === "limite") {
+                return await sock.sendMessage(from, {
+                    text:
+`📢 *TITANS TEAM · TIENDA DE CAJAS*
 
-        text:
-`╔══════════════════════════════╗
+╔══════════════════════════════╗
 ║     🚫 LÍMITE ALCANZADO      ║
 ╚══════════════════════════════╝
 
-📦 Comando:
-Caja
+Ya realizaste las 3 compras permitidas hoy.
+El límite es compartido entre todas las rarezas.
 
-❌ Ya utilizaste este comando
-3 veces el día de hoy.
+📅 Podrás comprar nuevamente mañana.
 
-📅 Vuelve mañana para abrir más cajas.
+🛡️ *Sistema de Economía Titans Team*
+🤖 *TitansB  Miembro Virtual*`
+                });
+            }
 
-━━━━━━━━━━━━━━━━━━━━━━
+            if (!compra.ok && compra.motivo === "almacenamiento_lleno") {
+                return await sock.sendMessage(from, {
+                    text:
+`📢 *TITANS TEAM · ALMACENAMIENTO*
 
-🤖 TitansBot v3`
+📦 Tu almacenamiento de cajas ${NOMBRES[rareza]} está lleno.
 
-    });
+Límite: 10 cajas por rareza.
+No se descontaron monedas.
 
-}
+🛡️ *Sistema de Economía Titans Team*
+🤖 *TitansB  Miembro Virtual*`
+                });
+            }
 
-      const nombre = usuario.nombre || "Titán";
+            if (!compra.ok && compra.motivo === "saldo_insuficiente") {
+                return await sock.sendMessage(from, {
+                    text:
+`📢 *TITANS TEAM · TIENDA DE CAJAS*
 
-      const costo = 300;
-
-      if ((usuario.coins || 0) < costo) {
-        return await sock.sendMessage(from, {
-          text:
-`╔══════════════════════════════╗
-║      💸 𝗦𝗜𝗡 𝗙𝗢𝗡𝗗𝗢𝗦 💸      ║
+╔══════════════════════════════╗
+║       💰 SALDO INSUFICIENTE  ║
 ╚══════════════════════════════╝
 
-📦 Una *Caja Premium* cuesta *${costo} monedas*.
+📦 Caja: *${NOMBRES[rareza]}*
+💵 Precio: *${PRECIOS_CAJAS[rareza].toLocaleString("es-CO")} monedas*
+💰 Saldo disponible: *${compra.saldo.toLocaleString("es-CO")} monedas*
 
-💰 Tus monedas: *${usuario.coins || 0}*
+No se realizó ningún descuento.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-⚔️ Juega !ruleta o participa en la comunidad para conseguir más monedas.
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
-        });
-      }
+🛡️ *Sistema de Economía Titans Team*
+🤖 *TitansB  Miembro Virtual*`
+                });
+            }
 
-      // Descontar monedas
-      usuario.coins -= costo;
+            if (!compra.ok && compra.motivo === "inventario_invalido") {
+                return await sock.sendMessage(from, {
+                    text:
+                        "⚠️ No pude validar tu inventario de forma segura. " +
+                        "No se descontaron monedas. Contacta a administración."
+                });
+            }
 
-      // Crear inventario si no existe
-      if (!inventarios[sender]) {
-        inventarios[sender] = {
-          cajas: 0,
-          objetos: []
-        };
-      }
+            if (!compra.ok || !compra.resultado) {
+                throw new Error("No se pudo confirmar la compra de la caja.");
+            }
 
-      // Agregar caja
-      inventarios[sender].cajas += 1;
+            const resultado = compra.resultado;
 
-      // Guardar
-guardarUsuario(sender, usuario);
-await guardarJSON("inventarios.json", inventarios);
+            const mensaje =
+`📢 *TITANS TEAM · TIENDA DE CAJAS*
 
-      const mensaje =
-`╔══════════════════════════════╗
-║      📦 𝗖𝗔𝗝𝗔 𝗣𝗥𝗘𝗠𝗜𝗨𝗠 📦      ║
+╔══════════════════════════════╗
+║       📦 COMPRA CONFIRMADA   ║
 ╚══════════════════════════════╝
 
-👤 *${nombre}*
+👤 *${resultado.nombre}*
 
-🎁 Has comprado una *Caja Premium Esports*.
+🎁 Caja adquirida: *${NOMBRES[rareza]}*
+💰 Costo: *${resultado.costo.toLocaleString("es-CO")} monedas*
+💳 Saldo restante: *${resultado.saldoFinal.toLocaleString("es-CO")} monedas*
 
-💰 Costo: *${costo} monedas*
-📦 Cajas disponibles: *${inventarios[sender].cajas}*
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-✨ *Posibles recompensas*
-
-⚪ Común → 45%
-🟢 Rara → 30%
-🔵 Épica → 15%
-🟣 Legendaria → 8%
-🟡 Mítica → 2%
+📦 Cajas ${NOMBRES[rareza]} disponibles:
+*${resultado.cajasPorRareza[rareza]} / 10*
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-📖 Usa *!abrir* para descubrir tu recompensa.
+📖 Usa *!abrir ${rareza}* para descubrir tu recompensa.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🏆 𝗟𝗜𝗚𝗔 𝗧𝗜𝗧𝗔𝗡𝗦 𝗧𝗘𝗔𝗠
-🤖 𝗧𝗶𝘁𝗮𝗻𝘀𝗕𝗼𝘁 𝘃𝟯 • 𝗣𝗿𝗲𝗺𝗶𝘂𝗺 𝗘𝘀𝗽𝗼𝗿𝘁𝘀
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+🛡️ *Sistema de Economía Titans Team*
+🤖 *TitansB  Miembro Virtual*`;
 
-      await sock.sendMessage(from, { text: mensaje });
+            await sock.sendMessage(from, { text: mensaje });
 
-    } catch (error) {
-      console.error("❌ Error caja:", error);
-        monitor.registrarEvento("ERROR_SISTEMA",{estado:"ERROR",componente:"CAJA",codigo:"SYSTEM_ERROR",descripcion:error.message});
+        } catch (error) {
+            console.error("❌ Error caja:", error);
 
-      await sock.sendMessage(from, {
-        text: "❌ No pude comprar la caja."
-      });
+            monitor.registrarEvento("ERROR_SISTEMA", {
+                estado: "ERROR",
+                componente: "CAJA",
+                codigo: "SYSTEM_ERROR",
+                descripcion: error.message
+            });
+
+            await sock.sendMessage(from, {
+                text: "❌ No pude comprar la caja. No repitas el comando hasta verificar el resultado."
+            });
+        }
     }
-  }
 };

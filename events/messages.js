@@ -9,13 +9,42 @@ const {
     agregarXP,
     actualizarNombre
 } = require("../utils/comunidad");
-const { anuncioGlobal } = require("../utils/anuncios");
+const { registrarAnuncioLogro, reconciliarAnunciosLogros } = require("../utils/colaAnunciosLogros");
 const { desbloquearLogro, obtenerTitulo } = require("../utils/logros");
 const filtroAprendizaje = require("../utils/titansb/filtroAprendizaje");
 const { manejarRegistroPrivado, esIdentidadAdmitida } = require("../community/registration-private-handler");
 const { manejarEdicionPrivada } = require("../community/profile-edit-handler");
+const { entregaPremios, procesarColaEntregasPremios } = require("../utils/economiaCompartida");
+const { crearManejadorPremiosPrivado } = require("../community/handler-premios-privado.cjs");
+
+const manejarPremiosPrivado = crearManejadorPremiosPrivado({
+    entrega: entregaPremios,
+    esIdentidadAdmitida,
+    procesarCola: procesarColaEntregasPremios
+});
+
+async function procesarMensajesEnLote(mensajes, procesar) {
+  for (const mensaje of mensajes) {
+    try {
+      await procesar(mensaje);
+    } catch (error) {
+      console.error("❌ Error procesando mensaje del lote:", error);
+    }
+  }
+}
 
 async function manejarMensajes(sock, message) {
+  if (!Array.isArray(message?.messages)) return;
+
+  await procesarMensajesEnLote(message.messages, async (msg) => {
+    await manejarMensajeIndividual(sock, {
+      ...message,
+      messages: [msg]
+    });
+  });
+}
+
+async function manejarMensajeIndividual(sock, message) {
   try {
     if (!message.messages) return;
 
@@ -113,13 +142,22 @@ if (mensajeBloqueado) return;
 
     if (textoXP && !textoXP.startsWith('!')) {
       const nombrePerfil = msg.pushName || 'Jugador';
-      actualizarNombre(identidadParticipanteXP, nombrePerfil);
+      await actualizarNombre(identidadParticipanteXP, nombrePerfil);
 
       const resultadoXP = await agregarXP(identidadParticipanteXP, 5, {
         messageId: msg.key.id
       });
 
       const usuarioActual = resultadoXP.usuario;
+
+      if (usuarioActual && resultadoXP.motivo === 'otorgada') {
+        reconciliarAnunciosLogros({
+          userId: identidadParticipanteXP,
+          grupo: from,
+          nombre: usuarioActual.nombre || 'Titán'
+        });
+      }
+
 
       if (resultadoXP.motivo === 'otorgada' && usuarioActual) {
         console.log('⭐ XP otorgada a:', identidadParticipanteXP);
@@ -152,10 +190,15 @@ if (mensajeBloqueado) return;
         if (usuarioActual.nivel >= 10) {
           const resultado10 = desbloquearLogro(identidadParticipanteXP, 'nivel_10');
           if (resultado10.nuevo) {
-            await anuncioGlobal(sock, from, 'logro', {
-              nombre: usuarioActual.nombre || 'Titán',
-              logro: resultado10.logro.nombre,
-              titulo: obtenerTitulo(identidadParticipanteXP)
+            registrarAnuncioLogro({
+              userId: identidadParticipanteXP,
+              logro: 'nivel_10',
+              grupo: from,
+              datos: {
+                nombre: usuarioActual.nombre || 'Titán',
+                logro: resultado10.logro.nombre,
+                titulo: obtenerTitulo(identidadParticipanteXP)
+              }
             });
           }
         }
@@ -164,16 +207,44 @@ if (mensajeBloqueado) return;
         if (usuarioActual.nivel >= 25) {
           const resultado25 = desbloquearLogro(identidadParticipanteXP, 'nivel_25');
           if (resultado25.nuevo) {
-            await anuncioGlobal(sock, from, 'logro', {
-              nombre: usuarioActual.nombre || 'Titán',
-              logro: resultado25.logro.nombre,
-              titulo: obtenerTitulo(identidadParticipanteXP)
+            registrarAnuncioLogro({
+              userId: identidadParticipanteXP,
+              logro: 'nivel_25',
+              grupo: from,
+              datos: {
+                nombre: usuarioActual.nombre || 'Titán',
+                logro: resultado25.logro.nombre,
+                titulo: obtenerTitulo(identidadParticipanteXP)
+              }
             });
           }
         }
       }
     }
   }
+
+// ======================================
+// 🎁 VERIFICACIÓN Y CAPTURA PRIVADA DE PREMIOS
+// ======================================
+
+if (
+    from &&
+    !from.endsWith("@g.us") &&
+    texto &&
+    esIdentidadAdmitida(from)
+) {
+    try {
+        const resultadoPremios =
+            await manejarPremiosPrivado(sock, from, texto, msg);
+
+        if (resultadoPremios?.atendido) return;
+    } catch (error) {
+        console.error(
+            "⚠️ TitansB | Fallo interno en el manejador privado de premios."
+        );
+        return;
+    }
+}
 
 // ======================================
 // 🔐 RESPUESTAS DE REGISTRO EN CHAT PRIVADO
@@ -404,4 +475,5 @@ ${comando.permisos.join(", ")}
   }
 }
 
+manejarMensajes.procesarMensajesEnLote = procesarMensajesEnLote;
 module.exports = manejarMensajes;

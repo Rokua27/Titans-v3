@@ -1,4 +1,4 @@
-const { leerJSON, guardarJSON } = require("../utils/database");
+const { jugarSlots } = require("../utils/juegosEconomia");
 
 const COSTO_MINIMO = 50;
 
@@ -19,25 +19,6 @@ function girar() {
     ];
 }
 
-function calcularPremio(resultado, apuesta) {
-    const [a, b, c] = resultado;
-
-    // Tres iguales
-    if (a === b && b === c) {
-        if (a === "7️⃣") return apuesta * 10;
-        if (a === "💎") return apuesta * 8;
-        if (a === "🔔") return apuesta * 6;
-        return apuesta * 5;
-    }
-
-    // Dos iguales
-    if (a === b || a === c || b === c) {
-        return apuesta * 2;
-    }
-
-    return 0;
-}
-
 module.exports = {
     nombre: "slots",
     categoria: "economia",
@@ -47,12 +28,14 @@ module.exports = {
     alias: ["tragamonedas"],
 
     async ejecutar(sock, from, args, msg) {
+        let transaccionConfirmada = false;
+
         try {
             const sender = msg.key.participant || msg.key.remoteJid;
-
+            const messageId = msg.key.id;
             const apuesta = Number(args[0]);
 
-            if (!Number.isFinite(apuesta) || apuesta < COSTO_MINIMO) {
+            if (!Number.isSafeInteger(apuesta) || apuesta < COSTO_MINIMO) {
                 return sock.sendMessage(from, {
                     text:
 `🎰 𝗧𝗜𝗧𝗔𝗡𝗦 𝗦𝗟𝗢𝗧𝗦
@@ -64,46 +47,49 @@ Ejemplo:
                 });
             }
 
-            if (!Number.isInteger(apuesta)) {
-                return sock.sendMessage(from, {
-                    text: "❌ La apuesta debe ser un número entero."
-                });
-            }
+            const simbolos = girar();
 
-            const usuarios = leerJSON("usuarios.json") || {};
+            const operacion = await jugarSlots(
+                sender,
+                messageId,
+                apuesta,
+                simbolos,
+                Date.now(),
+                Math.random(),
+                Math.random()
+            );
 
-            if (!usuarios[sender]) {
-                usuarios[sender] = {
-                    coins: 0
-                };
-            }
+            if (operacion.duplicada) return;
 
-            const usuario = usuarios[sender];
-            usuario.coins = Number(usuario.coins) || 0;
+            if (!operacion.ok) {
+                if (operacion.motivo === "limite") {
+                    return await sock.sendMessage(from, {
+                        text:
+`🎰 𝗟𝗜́𝗠𝗜𝗧𝗘 𝗗𝗜𝗔𝗥𝗜𝗢
 
-            if (usuario.coins < apuesta) {
+Ya utilizaste tus 3 partidas de Slots de hoy.
+
+⏰ El contador se reinicia a las 00:00, hora de Colombia.
+🎮 Puedes seguir jugando los otros juegos del casino.`
+                    });
+                }
+
                 return sock.sendMessage(from, {
                     text:
 `❌ 𝗠𝗢𝗡𝗘𝗗𝗔𝗦 𝗜𝗡𝗦𝗨𝗙𝗜𝗖𝗜𝗘𝗡𝗧𝗘𝗦
 
 💰 Apuesta: ${apuesta}
-💰 Tu saldo: ${usuario.coins}
+💰 Tu saldo: ${operacion.saldo}
 
 🎁 Usa !daily para conseguir tu recompensa diaria.`
                 });
             }
 
-            // Cobrar apuesta
-            usuario.coins -= apuesta;
+            transaccionConfirmada = true;
 
-            const resultado = girar();
-            const premio = calcularPremio(resultado, apuesta);
-
-            usuario.coins += premio;
-
-            guardarJSON("usuarios.json", usuarios);
-
-            const cambio = premio - apuesta;
+            const resultado = operacion.resultado;
+            const premio = resultado.premio;
+            const cambio = resultado.cambio;
 
             let resultadoTexto;
 
@@ -137,15 +123,14 @@ La máquina se quedó con tu apuesta.`;
 ╚══════════════════════════════╝
 
 🎰 𝗥𝗘𝗦𝗨𝗟𝗧𝗔𝗗𝗢
+        ${resultado.simbolos[0]}  │  ${resultado.simbolos[1]}  │  ${resultado.simbolos[2]}
 
-        ${resultado[0]}  │  ${resultado[1]}  │  ${resultado[2]}
-
-💰 Apuesta: ${apuesta} monedas
+💰 Apuesta: ${resultado.apuesta} monedas
 
 ${resultadoTexto}
 
 📊 Cambio: ${cambio >= 0 ? "+" : ""}${cambio} monedas
-💰 Saldo: ${usuario.coins} monedas
+💰 Saldo: ${resultado.coins} monedas
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🎁 !daily  •  Recompensa diaria
@@ -160,9 +145,11 @@ ${resultadoTexto}
         } catch (error) {
             console.error("❌ Error en slots:", error);
 
-            await sock.sendMessage(from, {
-                text: "❌ No fue posible ejecutar Titans Slots."
-            });
+            if (!transaccionConfirmada) {
+                await sock.sendMessage(from, {
+                    text: "❌ No fue posible ejecutar Titans Slots."
+                });
+            }
         }
     }
 };

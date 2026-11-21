@@ -1,66 +1,24 @@
-const { obtenerUsuario, guardarUsuario } = require("../utils/comunidad");
-const { puedeUsarComando } = require("../utils/limiteDiario");
+const { jugarCoinflip } = require("../utils/casinoEconomia");
 
 module.exports = {
-nombre: "coinflip",
+    nombre: "coinflip",
+    alias: ["cf", "flip"],
+    categoria: "jugador",
+    descripcion: "Apuesta monedas lanzando una moneda.",
+    permisos: ["usuario"],
+    uso: "!coinflip <cara/cruz> <cantidad>",
 
-alias: ["cf", "flip"],
+    async ejecutar(sock, from, args, msg) {
+        let resultadoOperacion;
 
-categoria: "jugador",
+        try {
+            const sender = msg.key.participant || msg.key.remoteJid;
+            const messageId = msg.key.id;
+            const usuario = Number.parseInt(args[0], 10);
 
-descripcion: "Apuesta monedas lanzando una moneda.",
-
-permisos: ["usuario"],
-
-uso: "!coinflip <cara/cruz> <cantidad>",
-
-  async ejecutar(sock, from, args, msg) {
-    try {
-      const sender = msg.key.participant || msg.key.remoteJid;
-      const usuario = obtenerUsuario(sender);
-
-// ======================================
-// 🔒 LÍMITE DIARIO (3 USOS)
-// ======================================
-
-const limite = puedeUsarComando(sender, "coinflip", 3);
-
-if (!limite.ok) {
-
-    return await sock.sendMessage(from, {
-
-        text:
-`╔══════════════════════════════╗
-║     🚫 LÍMITE ALCANZADO      ║
-╚══════════════════════════════╝
-
-🎰 Comando:
-CoinFlip
-
-❌ Has usado este comando
-3 veces el día de hoy.
-
-📅 Podrás volver a jugar
-mañana.
-
-━━━━━━━━━━━━━━━━━━━━━━
-
-🤖 TitansBot v3`
-
-    });
-
-}
-
-      // ======================================
-      // 💰 VALIDAR APUESTA
-      // ======================================
-
-      const apuesta = parseInt(args[0]);
-
-      if (!apuesta || apuesta <= 0) {
-        return await sock.sendMessage(from, {
-          text:
-`╔══════════════════════════════╗
+            if (!Number.isSafeInteger(usuario) || usuario <= 0) {
+                return await sock.sendMessage(from, {
+                    text: `╔══════════════════════════════╗
 ║      🎰 𝗖𝗢𝗜𝗡 𝗙𝗟𝗜𝗣 🎰       ║
 ╚══════════════════════════════╝
 
@@ -76,116 +34,118 @@ mañana.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🏆 𝗖𝗔𝗦𝗜𝗡𝗢 𝗧𝗜𝗧𝗔𝗡𝗦
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
-        });
-      }
+                });
+            }
 
-      if (apuesta < 50) {
-        return await sock.sendMessage(from, {
-          text: "❌ La apuesta mínima es *50 monedas*."
-        });
-      }
+            if (usuario < 50) {
+                return await sock.sendMessage(from, {
+                    text: "❌ La apuesta mínima es *50 monedas*."
+                });
+            }
 
-      if (apuesta > usuario.coins) {
-        return await sock.sendMessage(from, {
-          text:
-`╔══════════════════════════════╗
+            let eleccion = "cara";
+
+            if (args[1]) {
+                const opcion = args[1].toLowerCase();
+
+                if (opcion === "cara" || opcion === "cruz") {
+                    eleccion = opcion;
+                }
+            }
+
+            const resultado = Math.random() < 0.5 ? "cara" : "cruz";
+
+            resultadoOperacion = await jugarCoinflip(
+                sender,
+                messageId,
+                usuario,
+                eleccion,
+                resultado
+            );
+
+            if (resultadoOperacion.duplicada) return;
+
+            if (!resultadoOperacion.ok) {
+                if (resultadoOperacion.motivo === "limite") {
+                    return await sock.sendMessage(from, {
+                        text: `╔══════════════════════════════╗
+║     🚫 LÍMITE ALCANZADO      ║
+╚══════════════════════════════╝
+
+🎰 Comando:
+CoinFlip
+
+❌ Has usado este comando
+3 veces el día de hoy.
+
+📅 Podrás volver a jugar mañana.
+
+━━━━━━━━━━━━━━━━━━━━━━
+
+🤖 TitansBot v3`
+                    });
+                }
+
+                if (resultadoOperacion.motivo === "saldo_insuficiente") {
+                    return await sock.sendMessage(from, {
+                        text: `╔══════════════════════════════╗
 ║      💸 𝗙𝗢𝗡𝗗𝗢𝗦 💸       ║
 ╚══════════════════════════════╝
 
 No tienes suficientes monedas.
 
-💰 Balance actual: *${usuario.coins}*
-🎲 Apuesta solicitada: *${apuesta}*
+💰 Balance actual: *${resultadoOperacion.saldo}*
+🎲 Apuesta solicitada: *${usuario}*
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🏆 𝗖𝗔𝗦𝗜𝗡𝗢 𝗧𝗜𝗧𝗔𝗡𝗦
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
-        });
-      }
+                    });
+                }
+            }
 
-      // ======================================
-      // 🪙 ELECCIÓN DEL JUGADOR
-      // ======================================
+            const juego = resultadoOperacion.resultado;
+            const emojiResultado = juego.resultado === "cara" ? "🟡" : "⚫";
+            const estado = juego.gano ? "🏆 ¡GANASTE!" : "💥 ¡PERDISTE!";
 
-      let eleccion = "cara";
-
-      if (args[1]) {
-        const opcion = args[1].toLowerCase();
-
-        if (opcion === "cara" || opcion === "cruz") {
-          eleccion = opcion;
-        }
-      }
-
-      // ======================================
-      // 🎲 LANZAR MONEDA
-      // ======================================
-
-      const resultado = Math.random() < 0.5 ? "cara" : "cruz";
-      const gano = eleccion === resultado;
-
-      // ======================================
-      // 💰 ACTUALIZAR ECONOMÍA
-      // ======================================
-
-      let cambio = 0;
-
-      if (gano) {
-        cambio = apuesta;
-        usuario.coins += apuesta;
-      } else {
-        cambio = -apuesta;
-        usuario.coins -= apuesta;
-      }
-
-      guardarUsuario(sender, usuario);
-
-      // ======================================
-      // 🎨 RESULTADO PREMIUM ESPORTS
-      // ======================================
-
-      const emojiResultado = resultado === "cara" ? "🟡" : "⚫";
-      const estado = gano ? "🏆 ¡GANASTE!" : "💥 ¡PERDISTE!";
-
-      await sock.sendMessage(from, {
-        text:
+            await sock.sendMessage(from, {
+                text:
 `╔══════════════════════════════╗
 ║      🎰 𝗖𝗢𝗜𝗡 𝗙𝗟𝗜𝗣 🎰       ║
 ╚══════════════════════════════╝
 
 🪙 *LA MONEDA GIRA EN EL AIRE...*
-
 ✨ *RESULTADO OFICIAL*
-
-${emojiResultado} *${resultado.toUpperCase()}*
+${emojiResultado} *${juego.resultado.toUpperCase()}*
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🎯 Tu elección: *${eleccion.toUpperCase()}*
+🎯 Tu elección: *${juego.eleccion.toUpperCase()}*
 ${estado}
 
-${gano ? "💰 Ganancia" : "💸 Pérdida"}: *${Math.abs(cambio)} monedas*
-🏦 Balance actual: *${usuario.coins} monedas*
+${juego.gano ? "💰 Ganancia" : "💸 Pérdida"}: *${Math.abs(juego.cambio)} monedas*
+🏦 Balance actual: *${juego.coins} monedas*
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-${gano
-  ? "🔥 La fortuna sonríe a los verdaderos titanes."
-  : "⚔️ Todo campeón conoce la derrota antes de la gloria."}
+${juego.gano
+    ? "🔥 La fortuna sonríe a los verdaderos titanes."
+    : "⚔️ Todo campeón conoce la derrota antes de la gloria."}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🏆 𝗖𝗔𝗦𝗜𝗡𝗢 𝗧𝗜𝗧𝗔𝗡𝗦
 🎮 Riesgo • Suerte • Leyendas
 🤖 𝗧𝗶𝘁𝗮𝗻𝘀𝗕𝗼𝘁 𝘃𝟯 • 𝗣𝗿𝗲𝗺𝗶𝘂𝗺 𝗘𝘀𝗽𝗼𝗿𝘁𝘀
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
-      });
+            });
 
-    } catch (error) {
-      console.error("❌ Error coinflip:", error);
+        } catch (error) {
+            console.error("❌ Error coinflip:", error);
 
-      await sock.sendMessage(from, {
-        text:
-`╔══════════════════════════════╗
+            // No se informa un fallo de apuesta si la transacción ya fue confirmada.
+            if (!resultadoOperacion || !resultadoOperacion.ok) {
+                await sock.sendMessage(from, {
+                    text: `╔══════════════════════════════╗
 ║       ❌ 𝗘𝗥𝗥𝗢𝗥 ❌        ║
 ╚══════════════════════════════╝
 
@@ -195,7 +155,8 @@ No pude procesar la apuesta.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🤖 𝗧𝗶𝘁𝗮𝗻𝘀𝗕𝗼𝘁 𝘃𝟯`
-      });
+                }).catch(() => {});
+            }
+        }
     }
-  }
 };

@@ -11,7 +11,6 @@ const {
 
 const { leerJSON } = require("../utils/database");
 
-const torneo = require("../database/torneo.json");
 
 module.exports = {
 

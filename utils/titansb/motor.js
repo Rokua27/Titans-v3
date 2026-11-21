@@ -14,6 +14,8 @@ const {
     obtenerPerfilMiembro
 } = require("./perfilesMiembros");
 
+const { resolverInventario } = require("../inventarioTitansB");
+
 const {
     construirContextoLiga,
     detectarPreguntaLiga,
@@ -2594,10 +2596,8 @@ function resolverAutorLiga(autorId) {
             );
         }
 
-        let inventario = {
-            cajas: 0,
-            objetos: []
-        };
+        let inventario = null;
+        let estadoInventario = "no_disponible";
 
         try {
             const archivoInventarios = path.join(
@@ -2605,27 +2605,27 @@ function resolverAutorLiga(autorId) {
                 "../../database/inventarios.json"
             );
 
-            if (fs.existsSync(archivoInventarios)) {
-                const inventarios = JSON.parse(
-                    fs.readFileSync(
-                        archivoInventarios,
-                        "utf8"
-                    )
+            const inventarios = fs.existsSync(archivoInventarios)
+                ? JSON.parse(
+                    fs.readFileSync(archivoInventarios, "utf8")
+                )
+                : {};
+
+            const resuelto = resolverInventario(
+                autorId,
+                inventarios
+            );
+
+            if (resuelto.ok) {
+                inventario = resuelto.inventario;
+                estadoInventario = resuelto.existente
+                    ? "registrado"
+                    : "no_registrado";
+            } else {
+                console.warn(
+                    "⚠️ TitansB | Inventario del autor no disponible:",
+                    resuelto.motivo
                 );
-
-                const inv = inventarios?.[autorId];
-
-                if (
-                    inv &&
-                    typeof inv === "object"
-                ) {
-                    inventario = {
-                        cajas: Number(inv.cajas) || 0,
-                        objetos: Array.isArray(inv.objetos)
-                            ? inv.objetos
-                            : []
-                    };
-                }
             }
         } catch (error) {
             console.error(
@@ -2653,6 +2653,7 @@ function resolverAutorLiga(autorId) {
                 titulo,
                 logros,
                 inventario,
+                estadoInventario,
 
                 origen: "liga_titans"
             };
@@ -2692,6 +2693,7 @@ function resolverAutorLiga(autorId) {
                 titulo,
                 logros,
                 inventario,
+                estadoInventario,
 
                 origen: "liga_titans",
                 confianza: "interno"
@@ -2714,6 +2716,7 @@ function resolverAutorLiga(autorId) {
             titulo,
             logros,
             inventario,
+            estadoInventario,
 
             origen: "liga_titans",
             confianza: "interno"
@@ -3142,12 +3145,34 @@ function resolverConsultaPersonalAutor(pregunta, autorLiga) {
                 ? autorLiga.inventario
                 : null;
 
-        if (!inventario) {
-            return "No tengo un inventario registrado oficialmente.";
+        if (autorLiga.estadoInventario === "no_disponible") {
+            return (
+                "⚠️ No puedo consultar tu inventario porque sus datos " +
+                "no superaron la validación de seguridad. " +
+                "No significa que hayas perdido tus objetos o cajas. " +
+                "Contacta a administración para revisar el registro."
+            );
+        }
+
+        if (
+            autorLiga.estadoInventario === "no_registrado" ||
+            !inventario
+        ) {
+            return "Todavía no tienes un inventario registrado oficialmente.";
         }
 
         const cajas =
             Number(inventario.cajas) || 0;
+
+        const cajasPorRareza = inventario.cajasPorRareza || {};
+
+        const resumenCajas =
+            `📦 Cajas genéricas: ${cajas}\n` +
+            `📦 Cajas comunes: ${Number(cajasPorRareza.comun) || 0}\n` +
+            `📦 Cajas raras: ${Number(cajasPorRareza.rara) || 0}\n` +
+            `📦 Cajas épicas: ${Number(cajasPorRareza.epica) || 0}\n` +
+            `📦 Cajas legendarias: ${Number(cajasPorRareza.legendaria) || 0}\n` +
+            `📦 Cajas especiales: ${Number(cajasPorRareza.especial) || 0}`;
 
         const objetos =
             Array.isArray(inventario.objetos)
@@ -3156,8 +3181,8 @@ function resolverConsultaPersonalAutor(pregunta, autorLiga) {
 
         if (!objetos.length) {
             return (
-                `Tu inventario oficial registra **${cajas} cajas** ` +
-                `y no tiene objetos registrados.`
+                `🎒 *INVENTARIO OFICIAL*\n\n${resumenCajas}\n\n` +
+                "No tienes objetos registrados."
             );
         }
 
@@ -3187,8 +3212,8 @@ function resolverConsultaPersonalAutor(pregunta, autorLiga) {
                 .join("\n");
 
         return (
-            `Tu inventario oficial registra **${cajas} cajas** ` +
-            `y **${objetos.length} objetos**:\n\n` +
+            `🎒 *INVENTARIO OFICIAL*\n\n${resumenCajas}\n\n` +
+            `🎁 Objetos registrados: **${objetos.length}**\n\n` +
             listaObjetos
         );
     }
@@ -3520,6 +3545,26 @@ async function generarRespuesta(
                     .join("\n")
                 : "No hay logros registrados oficialmente.";
 
+        const cajasPorRarezaAutor =
+            autorLiga.inventario?.cajasPorRareza || {};
+
+        const cajasAutorTexto =
+            autorLiga.inventario &&
+            typeof autorLiga.inventario === "object"
+                ? (
+                    `Genéricas: ${autorLiga.inventario.cajas ?? 0} | ` +
+                    `Comunes: ${cajasPorRarezaAutor.comun ?? 0} | ` +
+                    `Raras: ${cajasPorRarezaAutor.rara ?? 0} | ` +
+                    `Épicas: ${cajasPorRarezaAutor.epica ?? 0} | ` +
+                    `Legendarias: ${cajasPorRarezaAutor.legendaria ?? 0} | ` +
+                    `Especiales: ${cajasPorRarezaAutor.especial ?? 0}`
+                )
+                : (
+                    autorLiga.estadoInventario === "no_registrado"
+                        ? "Inventario no registrado."
+                        : "No disponible por validación."
+                );
+
         const inventarioAutorTexto =
             autorLiga.inventario &&
             typeof autorLiga.inventario === "object"
@@ -3546,7 +3591,11 @@ async function generarRespuesta(
                             .join("\n")
                         : "No hay objetos registrados oficialmente."
                 )
-                : "No hay inventario registrado oficialmente.";
+                : (
+                    autorLiga.estadoInventario === "no_registrado"
+                        ? "Todavía no hay un inventario registrado."
+                        : "Inventario no disponible por validación."
+                );
 
         contextoAutor =
             "━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
@@ -3582,7 +3631,7 @@ async function generarRespuesta(
             `${logrosAutorTexto}\n\n` +
 
             "🎒 INVENTARIO OFICIAL\n" +
-            `Cajas: ${autorLiga.inventario?.cajas ?? 0}\n` +
+            `Cajas por tipo: ${cajasAutorTexto}\n` +
             `${inventarioAutorTexto}\n\n` +
 
             "REGLAS DEL PERFIL PERSONAL:\n" +

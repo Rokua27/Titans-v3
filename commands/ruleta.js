@@ -1,44 +1,37 @@
 const monitor = require("../utils/monitor");
-const { leerJSON, guardarJSON } = require("../utils/database");
-const { obtenerUsuario, guardarUsuario, aplicarXPRecompensa } = require("../utils/comunidad");
-const { puedeUsarComando } = require("../utils/limiteDiario");
 const { anuncioGlobal } = require("../utils/anuncios");
-
-// Cooldown en memoria
-const cooldowns = new Map();
+const { jugarRuleta } = require("../utils/casinoEconomia");
 
 module.exports = {
-  nombre: "ruleta",
+    nombre: "ruleta",
+    alias: [],
+    categoria: "jugador",
+    descripcion: "Apuesta monedas en la ruleta.",
+    permisos: ["usuario"],
+    uso: "!ruleta <cantidad>",
 
-alias: [],
+    async ejecutar(sock, from, args, msg) {
+        let resultado;
 
-categoria: "jugador",
+        try {
+            const sender = msg.key.participant || msg.key.remoteJid;
+            const messageId = msg.key.id;
 
-descripcion: "Apuesta monedas en la ruleta.",
+            resultado = await jugarRuleta(
+                sender,
+                messageId,
+                Math.random(),
+                Date.now(),
+                Math.random(),
+                Math.random()
+            );
 
-permisos: ["usuario"],
+            if (resultado.duplicada) return;
 
-uso: "!ruleta <cantidad>",
-
-  async ejecutar(sock, from, args, msg) {
-    try {
-      const sender = msg.key.participant || msg.key.remoteJid;
-
-     const usuario = obtenerUsuario(sender);
-      const dataRuleta = leerJSON("ruleta.json") || { jackpot: 5000 };
-
-// ======================================
-// 🔒 LÍMITE DIARIO (3 USOS)
-// ======================================
-
-const limite = puedeUsarComando(sender, "ruleta", 3);
-
-if (!limite.ok) {
-
-    return await sock.sendMessage(from, {
-
-        text:
-`╔══════════════════════════════╗
+            if (!resultado.ok) {
+                if (resultado.motivo === "limite") {
+                    return await sock.sendMessage(from, {
+                        text: `╔══════════════════════════════╗
 ║     🚫 LÍMITE ALCANZADO      ║
 ╚══════════════════════════════╝
 
@@ -48,31 +41,18 @@ Ruleta
 ❌ Ya utilizaste este comando
 3 veces el día de hoy.
 
-📅 Vuelve mañana para seguir jugando.
+⏰ Tu límite se reinicia a las 00:00, hora de Colombia.
 
 ━━━━━━━━━━━━━━━━━━━━━━
-
 🤖 TitansBot v3`
+                    });
+                }
 
-    });
+                if (resultado.motivo === "cooldown") {
+                    const restante = Math.ceil(resultado.restante / 1000);
 
-}
-
-      const nombre = usuario.nombre || "Titán";
-
-      // ======================================
-      // ⏱️ COOLDOWN (30 segundos)
-      // ======================================
-
-      const ahora = Date.now();
-      const ultimoUso = cooldowns.get(sender);
-
-      if (ultimoUso && ahora - ultimoUso < 30000) {
-        const restante = Math.ceil((30000 - (ahora - ultimoUso)) / 1000);
-
-        return await sock.sendMessage(from, {
-          text:
-`╔══════════════════════════════╗
+                    return await sock.sendMessage(from, {
+                        text: `╔══════════════════════════════╗
 ║      ⏱️ 𝗖𝗢𝗢𝗟𝗗𝗢𝗪𝗡 ⏱️       ║
 ╚══════════════════════════════╝
 
@@ -82,207 +62,126 @@ Ruleta
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🤖 𝗧𝗶𝘁𝗮𝗻𝘀𝗕𝗼𝘁 𝘃𝟯`
-        });
-      }
+                    });
+                }
 
-      // ======================================
-      // 💰 COSTO DE JUGAR
-      // ======================================
-
-      const costo = 100;
-
-      if ((usuario.coins || 0) < costo) {
-        return await sock.sendMessage(from, {
-          text:
-`╔══════════════════════════════╗
+                if (resultado.motivo === "saldo_insuficiente") {
+                    return await sock.sendMessage(from, {
+                        text: `╔══════════════════════════════╗
 ║     💸 𝗦𝗜𝗡 𝗙𝗢𝗡𝗗𝗢𝗦 💸     ║
 ╚══════════════════════════════╝
 
-🎡 La Ruleta Titans requiere *${costo} monedas*.
+🎡 La Ruleta Titans requiere *100 monedas*.
 
-💰 Tus monedas: *${usuario.coins || 0}*
+💰 Tus monedas: *${resultado.saldo}*
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ⚔️ Participa en la comunidad para ganar más monedas.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
-        });
-      }
+                    });
+                }
+            }
 
-      // Descontar costo
-      usuario.coins -= costo;
+            const juego = resultado.resultado;
+            const jackpotMostrado = juego.jackpotGanado
+                ? juego.premioCoins
+                : juego.jackpot;
 
-      // 20% del costo va al jackpot
-      dataRuleta.jackpot += 20;
-
-      // Activar cooldown
-      cooldowns.set(sender, ahora);
-
-      // ======================================
-      // 🎰 ANIMACIÓN
-      // ======================================
-
-      await sock.sendMessage(from, {
-        text:
-`╔══════════════════════════════╗
+            await sock.sendMessage(from, {
+                text: `╔══════════════════════════════╗
 ║      🎡 𝗥𝗨𝗟𝗘𝗧𝗔 𝗧𝗜𝗧𝗔𝗡𝗦 🎡      ║
 ╚══════════════════════════════╝
 
 🎰 *Girando la ruleta...*
 
-🟢 💰 200
-🔵 ⭐ XP x2
-🟣 💎 Caja Épica
-🔴 ☠️ Pierdes 50
-🟡 🏆 JACKPOT
+🎯 La ruleta tiene siete posibles resultados:
+🏆 Jackpot legendario
+💰 1.000 monedas
+🎁 400 monedas
+🪙 200 monedas
+⭐ 100 XP
+☠️ Pérdida adicional de 50 monedas
+😶 Sin premio
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-💰 Jackpot actual: *${dataRuleta.jackpot} monedas*
-
+💵 Costo por partida: *100 monedas*
+💰 Jackpot: *${jackpotMostrado} monedas*
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ⚔️ La suerte de los titanes decidirá tu destino...`
-      });
+            });
 
-      // Pequeña pausa para efecto visual
-      await new Promise(resolve => setTimeout(resolve, 2000));
+            await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // ======================================
-      // 🎲 RESULTADOS
-      // ======================================
+            if (juego.jackpotGanado) {
+                try {
+                    await anuncioGlobal(sock, from, "jackpot", {
+                        nombre: juego.nombre,
+                        coins: juego.premioCoins
+                    });
+                } catch (error) {
+                    console.error("Error anunciando jackpot:", error);
+                }
+            }
 
-      const random = Math.random();
-
-      let titulo = "";
-      let descripcion = "";
-      let recompensaCoins = 0;
-      let recompensaXP = 0;
-
-      // 1% JACKPOT
-      if (random < 0.01) {
-
-        recompensaCoins = dataRuleta.jackpot;
-        dataRuleta.jackpot = 5000;
-
-        titulo = "🏆 JACKPOT LEGENDARIO";
-        descripcion = `💰 Has ganado el JACKPOT de *${recompensaCoins} monedas*.`;
-
-await anuncioGlobal(sock, from, "jackpot", {
-    nombre: usuario.nombre || "Titán",
-    coins: recompensaCoins
-});
-
-      // 9% GRAN PREMIO
-      } else if (random < 0.10) {
-
-        recompensaCoins = 1000;
-        titulo = "💎 GRAN PREMIO";
-        descripcion = "💰 Has obtenido *1000 monedas*.";
-
-      // 20% PREMIO MEDIO
-      } else if (random < 0.30) {
-
-        recompensaCoins = 400;
-        titulo = "🎁 PREMIO ÉPICO";
-        descripcion = "💰 Has ganado *400 monedas*.";
-
-      // 25% PREMIO PEQUEÑO
-      } else if (random < 0.55) {
-
-        recompensaCoins = 200;
-        titulo = "💰 PREMIO";
-        descripcion = "💰 Has ganado *200 monedas*.";
-
-      // 20% XP
-      } else if (random < 0.75) {
-
-        recompensaXP = 100;
-        titulo = "⭐ XP DOBLE";
-        descripcion = "⭐ Has obtenido *100 XP*.";
-
-      // 15% PÉRDIDA
-      } else if (random < 0.90) {
-
-        recompensaCoins = -50;
-        titulo = "☠️ MALA SUERTE";
-        descripcion = "💸 La ruleta te quitó *50 monedas adicionales*.";
-
-      // 10% NADA
-      } else {
-
-        titulo = "😶 CASILLA VACÍA";
-        descripcion = "🎡 Esta vez no obtuviste ninguna recompensa.";
-      }
-
-      // ======================================
-      // 💳 APLICAR RECOMPENSAS
-      // ======================================
-
-        let resultadoXP = null;
-
-        if (recompensaXP > 0) {
-          resultadoXP = aplicarXPRecompensa(usuario, recompensaXP);
-
-          if (!resultadoXP || resultadoXP.motivo !== "otorgada") {
-            throw new Error("No se pudo aplicar la XP de la ruleta.");
-          }
-        }
-
-        usuario.coins = Math.max(
-          0,
-          (usuario.coins || 0) + recompensaCoins
-        );
-
-        // Guardar perfil y jackpot
-        guardarUsuario(sender, usuario);
-        await guardarJSON("ruleta.json", dataRuleta);
-
-      // ======================================
-      // ✨ MENSAJE FINAL PREMIUM
-      // ======================================
-
-      const mensajeFinal =
+            const mensajeFinal =
 `╔══════════════════════════════╗
 ║        🎉 𝗥𝗘𝗦𝗨𝗟𝗧𝗔𝗗𝗢 🎉        ║
 ╚══════════════════════════════╝
 
-👤 *${nombre}*
+👤 *${juego.nombre}*
 
-🏅 *${titulo}*
-
-${descripcion}
+🏅 *${juego.titulo}*
+${juego.descripcion}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-💰 Monedas actuales: *${usuario.coins}*
-⭐ XP actual: *${usuario.xp}*
-  ${resultadoXP && resultadoXP.monedasNivel > 0
-    ? `🏅 +${resultadoXP.monedasNivel} monedas por subir ${resultadoXP.nivelesGanados} nivel(es)`
+💰 Monedas actuales: *${juego.coins}*
+⭐ XP actual: *${juego.xp}*
+${juego.monedasNivel > 0
+    ? `🏅 +${juego.monedasNivel} monedas por subir ${juego.nivelesGanados} nivel(es)`
     : ""}
-🏆 Jackpot: *${dataRuleta.jackpot}*
+🏆 Jackpot: *${juego.jackpot}*
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🎰 *Probabilidades Premium*
+🎰 *PROBABILIDADES DE LA RULETA*
 
-🟡 JACKPOT → 1%
-🟣 ÉPICO → 20%
-🔵 XP → 20%
-🔴 PÉRDIDA → 15%
+🏆 Jackpot → 1%
+💰 1.000 monedas → 9%
+🎁 400 monedas → 20%
+🪙 200 monedas → 25%
+⭐ 100 XP → 20%
+☠️ Pierdes 50 monedas adicionales → 15%
+😶 Sin premio → 10%
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💵 Costo por partida: *100 monedas*
+📊 Probabilidad total: *100%*
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🏆 𝗟𝗜𝗚𝗔 𝗧𝗜𝗧𝗔𝗡𝗦 𝗧𝗘𝗔𝗠
 🤖 𝗧𝗶𝘁𝗮𝗻𝘀𝗕𝗼𝘁 𝘃𝟯 • 𝗣𝗿𝗲𝗺𝗶𝘂𝗺 𝗘𝘀𝗽𝗼𝗿𝘁𝘀
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
 
-      await sock.sendMessage(from, { text: mensajeFinal });
+            await sock.sendMessage(from, { text: mensajeFinal });
 
-    } catch (error) {
-      console.error("❌ Error ruleta:", error);
-        monitor.registrarEvento("ERROR_SISTEMA",{estado:"ERROR",componente:"RULETA",codigo:"SYSTEM_ERROR",descripcion:error.message});
+        } catch (error) {
+            console.error("❌ Error ruleta:", error);
 
-      await sock.sendMessage(from, {
-        text: "❌ Ocurrió un error al girar la ruleta."
-      });
+            monitor.registrarEvento("ERROR_SISTEMA", {
+                estado: "ERROR",
+                componente: "RULETA",
+                codigo: "SYSTEM_ERROR",
+                descripcion: error.message
+            });
+
+            // No se informa un fallo de apuesta si la transacción ya fue confirmada.
+            if (!resultado || !resultado.ok) {
+                await sock.sendMessage(from, {
+                    text: "❌ Ocurrió un error al procesar la ruleta."
+                }).catch(() => {});
+            }
+        }
     }
-  }
 };

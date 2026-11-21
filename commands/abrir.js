@@ -1,180 +1,190 @@
+"use strict";
+
 const monitor = require("../utils/monitor");
-const { leerJSON, guardarJSON } = require("../utils/database");
-const {
-  obtenerUsuario,
-  guardarUsuario,
-  aplicarXPRecompensa
-} = require("../utils/comunidad");
-const { puedeUsarComando } = require("../utils/limiteDiario");
+const { abrirCaja } = require("../utils/cajasEconomia");
 const { anuncioGlobal } = require("../utils/anuncios");
 
+const RAREZAS = {
+    comun: "comun",
+    común: "comun",
+    rara: "rara",
+    epica: "epica",
+    épica: "epica",
+    legendaria: "legendaria",
+    especial: "especial"
+};
+
+const NOMBRES = {
+    comun: "Común",
+    rara: "Rara",
+    epica: "Épica",
+    legendaria: "Legendaria",
+    especial: "Especial"
+};
+
 module.exports = {
-  nombre: "abrir",
-  alias: [],
-  categoria: "jugador",
-  descripcion: "Abre una caja de tu inventario.",
-  permisos: ["usuario"],
-  uso: "!abrir",
+    nombre: "abrir",
+    alias: [],
+    categoria: "jugador",
+    descripcion: "Abre una caja de tu inventario.",
+    permisos: ["usuario"],
+    uso: "!abrir [comun|rara|epica|legendaria|especial]",
 
-  async ejecutar(sock, from, args, msg) {
-    try {
-      console.log("📦 Ejecutando comando abrir");
+    async ejecutar(sock, from, args, msg) {
+        try {
+            console.log("📦 Ejecutando comando abrir");
 
-      const sender = msg.key.participant || msg.key.remoteJid;
-      const usuario = obtenerUsuario(sender);
-      const inventarios = leerJSON("inventarios.json") || {};
+            const sender = msg.key.participant || msg.key.remoteJid;
+            const messageId = msg.key.id;
 
-      // ======================================
-      // 🔒 LÍMITE DIARIO (3 USOS)
-      // ======================================
-      const limite = puedeUsarComando(sender, "abrir", 3);
+            const entrada = String(args?.[0] || "")
+                .trim()
+                .toLowerCase();
 
-      if (!limite.ok) {
-        return await sock.sendMessage(from, {
-          text:
-`╔══════════════════════════════╗
+            const generica = entrada === "";
+            const rareza = generica ? null : RAREZAS[entrada];
+
+            if (!generica && !rareza) {
+                return await sock.sendMessage(from, {
+                    text:
+`📢 *TITANS TEAM · APERTURA DE CAJAS*
+
+❌ Rareza no válida.
+
+Usa:
+• !abrir comun
+• !abrir rara
+• !abrir epica
+• !abrir legendaria
+• !abrir especial
+
+El comando *!abrir* sin argumentos conserva las cajas genéricas antiguas.
+
+🛡️ *Sistema de Economía Titans Team*
+🤖 *TitansB  Miembro Virtual*`
+                });
+            }
+
+            const apertura = generica
+                ? await abrirCaja(sender, messageId, Math.random())
+                : await abrirCaja(
+                    sender,
+                    messageId,
+                    rareza,
+                    Math.random()
+                );
+
+            if (apertura.duplicada) {
+                console.log("ℹ️ Apertura repetida: no se vuelve a entregar ni anunciar.");
+                return;
+            }
+
+            if (!apertura.ok && apertura.motivo === "limite") {
+                return await sock.sendMessage(from, {
+                    text:
+`📢 *TITANS TEAM · APERTURA DE CAJAS*
+
+╔══════════════════════════════╗
 ║     🚫 LÍMITE ALCANZADO      ║
 ╚══════════════════════════════╝
 
-📦 Comando:
-Abrir Caja
-
-❌ Ya abriste 3 cajas el día de hoy.
+Ya abriste las 3 cajas permitidas hoy.
+El límite es compartido entre todas las rarezas.
 
 📅 Vuelve mañana para seguir obteniendo recompensas.
-━━━━━━━━━━━━━━━━━━━━━━
-🤖 TitansBot v3`
-        });
-      }
 
-      // Crear inventario si no existe
-      if (!inventarios[sender]) {
-        inventarios[sender] = {
-          cajas: 0,
-          objetos: []
-        };
-      }
+🛡️ *Sistema de Economía Titans Team*
+🤖 *TitansB  Miembro Virtual*`
+                });
+            }
 
-      // Verificar cajas
-      if (inventarios[sender].cajas <= 0) {
-        return await sock.sendMessage(from, {
-          text: "📦 No tienes cajas para abrir. Usa *!caja* primero."
-        });
-      }
+            if (!apertura.ok && apertura.motivo === "inventario_invalido") {
+                return await sock.sendMessage(from, {
+                    text:
+                        "⚠️ No pude validar tu inventario de forma segura. " +
+                        "No se consumió ninguna caja. Contacta a administración."
+                });
+            }
 
-      const nombre = usuario.nombre || "Titán";
+            if (!apertura.ok && apertura.motivo === "sin_cajas") {
+                const nombre = generica ? "genéricas" : NOMBRES[rareza];
 
-      // Consumir caja
-      inventarios[sender].cajas -= 1;
+                return await sock.sendMessage(from, {
+                    text:
+                        `📦 No tienes cajas ${nombre} disponibles. ` +
+                        (generica
+                            ? "Usa !inventario para consultar tus cajas."
+                            : `Usa !caja ${rareza} para comprar una.`)
+                });
+            }
 
-      // Recompensa aleatoria
-      const random = Math.random();
+            if (!apertura.ok || !apertura.resultado) {
+                throw new Error("No se pudo confirmar la apertura de la caja.");
+            }
 
-      let rareza = "⚪ COMÚN";
-      let xp = 50;
-      let coins = 100;
-      let objeto = "Fragmento de XP";
+            const resultado = apertura.resultado;
 
-      if (random < 0.02) {
-        rareza = "🟡 MÍTICA";
-        xp = 2500;
-        coins = 5000;
-        objeto = "Reliquia Mítica";
+            if (resultado.mitica) {
+                await anuncioGlobal(sock, from, "mitica", {
+                    nombre: resultado.nombre,
+                    objeto: resultado.objeto
+                });
+            }
 
-        // 🌌 ANUNCIO GLOBAL DE DROP MÍTICO
-        await anuncioGlobal(sock, from, "mitica", {
-          nombre,
-          objeto
-        });
+            const cajasRestantes = generica
+                ? resultado.cajas
+                : resultado.cajasPorRareza[rareza];
 
-      } else if (random < 0.10) {
-        rareza = "🟣 LEGENDARIA";
-        xp = 1000;
-        coins = 2000;
-        objeto = "Corona Legendaria";
+            const nombreCaja = generica
+                ? "Genérica"
+                : NOMBRES[rareza];
 
-      } else if (random < 0.25) {
-        rareza = "🔵 ÉPICA";
-        xp = 400;
-        coins = 800;
-        objeto = "Emblema Épico";
+            const mensaje =
+`📢 *TITANS TEAM · APERTURA DE CAJAS*
 
-      } else if (random < 0.55) {
-        rareza = "🟢 RARA";
-        xp = 150;
-        coins = 300;
-        objeto = "Boost de XP";
-      }
-
-      // ======================================
-      // ⭐ APLICAR XP CON EL MOTOR COMPARTIDO
-      // ======================================
-      const resultadoXP = aplicarXPRecompensa(usuario, xp);
-
-      if (!resultadoXP || resultadoXP.motivo !== "otorgada") {
-        throw new Error("No se pudo aplicar la XP de la caja.");
-      }
-
-      // Aplicar monedas del premio.
-      // Las monedas por subir de nivel ya las procesa el motor compartido.
-      usuario.coins = (usuario.coins || 0) + coins;
-
-      // Guardar objeto
-      inventarios[sender].objetos.push({
-        nombre: objeto,
-        rareza,
-        fecha: Date.now()
-      });
-
-      // Guardar archivos
-      guardarUsuario(sender, usuario);
-      await guardarJSON("inventarios.json", inventarios);
-
-      const mensaje = `
 ╔══════════════════════════════╗
-║      🎁 𝗖𝗔𝗝𝗔 𝗔𝗕𝗜𝗘𝗥𝗧𝗔 🎁      ║
+║       🎁 CAJA ABIERTA        ║
 ╚══════════════════════════════╝
 
-👤 *${nombre}*
+👤 *${resultado.nombre}*
 
-🏆 *${rareza}*
+📦 Caja utilizada: *${nombreCaja}*
+🏆 Rareza del objeto: *${resultado.rareza}*
+🎖️ Objeto obtenido: *${resultado.objeto}*
 
-🎖️ Objeto: *${objeto}*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⭐ XP: *+${resultado.xp}*
+💰 Monedas: *+${resultado.coins}*
+${resultado.nivelesGanados > 0
+    ? `🎉 Nivel alcanzado: *${resultado.nivel}*\n🪙 Bonificación por nivel: *+${resultado.monedasNivel} monedas*`
+    : ""}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-⭐ XP: *+${xp}*
-💰 Monedas: *+${coins}*
-${resultadoXP.nivelesGanados > 0
-  ? `🎉 Nivel alcanzado: *${usuario.nivel}*\n🪙 Monedas por subir ${resultadoXP.nivelesGanados} nivel(es): *+${resultadoXP.monedasNivel}*`
-  : ""}
+📦 Cajas ${nombreCaja} restantes: *${cajasRestantes}*
+🎒 Objetos en inventario: *${resultado.objetos}*
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📦 Cajas restantes: *${inventarios[sender].cajas}*
-🎒 Objetos: *${inventarios[sender].objetos.length}*
+🛡️ *Sistema de Economía Titans Team*
+🤖 *TitansB  Miembro Virtual*`;
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🏆 𝗟𝗜𝗚𝗔 𝗧𝗜𝗧𝗔𝗡𝗦 𝗧𝗘𝗔𝗠
-🤖 𝗧𝗶𝘁𝗮𝗻𝘀𝗕𝗼𝘁 𝘃𝟯 • 𝗣𝗿𝗲𝗺𝗶𝘂𝗺 𝗘𝘀𝗽𝗼𝗿𝘁𝘀
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+            await sock.sendMessage(from, { text: mensaje });
 
-      await sock.sendMessage(from, { text: mensaje });
+            console.log("✅ Caja abierta correctamente");
 
-      console.log("✅ Caja abierta correctamente");
+        } catch (error) {
+            console.error("❌ Error abrir:", error);
 
-    } catch (error) {
-      console.error("❌ Error abrir:", error);
+            monitor.registrarEvento("ERROR_SISTEMA", {
+                estado: "ERROR",
+                componente: "ABRIR",
+                codigo: "SYSTEM_ERROR",
+                descripcion: error.message
+            });
 
-      monitor.registrarEvento("ERROR_SISTEMA", {
-        estado: "ERROR",
-        componente: "ABRIR",
-        codigo: "SYSTEM_ERROR",
-        descripcion: error.message
-      });
-
-      await sock.sendMessage(from, {
-        text: "❌ Ocurrió un error al abrir la caja."
-      });
+            await sock.sendMessage(from, {
+                text: "❌ Ocurrió un error al abrir la caja. Verifica el inventario antes de repetir el comando."
+            });
+        }
     }
-  }
 };

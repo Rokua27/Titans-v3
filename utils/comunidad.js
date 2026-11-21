@@ -1,4 +1,10 @@
-const { leerJSON, guardarJSON } = require("./database");
+const crypto = require("crypto");
+const { leerJSON } = require("./database");
+
+function obtenerGestorEconomia() {
+    return require("./economiaCompartida").gestor;
+}
+
 
 // ==========================================
 // CONFIGURACIÓN DEL SISTEMA DE XP
@@ -120,8 +126,7 @@ function obtenerUsuario(id) {
     }
 
     if (!usuarios[claveCanonica]) {
-
-        usuarios[claveCanonica] = {
+        return {
             xp: 0,
             nivel: 1,
             coins: 0,
@@ -130,8 +135,6 @@ function obtenerUsuario(id) {
             racha: 0,
             nombre: ""
         };
-
-        guardarJSON("usuarios.json", usuarios);
     }
 
     return usuarios[claveCanonica];
@@ -141,45 +144,67 @@ function obtenerUsuario(id) {
 // Guardar usuario
 // ==========================================
 
-function guardarUsuario(id, data) {
-
-    const usuarios = leerJSON("usuarios.json") || {};
-
-    const claveCanonica =
-        resolverClaveUsuario(id, usuarios);
-
-    if (!claveCanonica) {
-        return;
+async function guardarUsuario(id, data) {
+    if (!normalizarIdentidad(id) || !data || typeof data !== "object") {
+        return null;
     }
 
-    usuarios[claveCanonica] = data;
+    const transaccion = await obtenerGestorEconomia().ejecutar(
+        "perfil-" + crypto.randomUUID(),
+        async leer => {
+            const usuarios = leer("usuarios.json") || {};
+            const clave = resolverClaveUsuario(id, usuarios);
+            if (!clave) {
+                return { cambios: { "usuarios.json": usuarios }, resultado: null };
+            }
 
-    return guardarJSON(
-        "usuarios.json",
-        usuarios
+            usuarios[clave] = data;
+            return {
+                cambios: { "usuarios.json": usuarios },
+                resultado: usuarios[clave]
+            };
+        }
     );
+
+    return transaccion.resultado;
 }
 
 // ==========================================
 // Actualizar nombre
 // ==========================================
 
-function actualizarNombre(id, nombre) {
-
-    if (!nombre) return;
-
-    const usuario = obtenerUsuario(id);
-
-    if (!usuario) return;
-
-    // Si el nombre no cambió, no guardar.
-    if (usuario.nombre === nombre) {
-        return;
+async function actualizarNombre(id, nombre) {
+    if (!normalizarIdentidad(id) || typeof nombre !== "string" || !nombre.trim()) {
+        return null;
     }
 
-    usuario.nombre = nombre;
+    const transaccion = await obtenerGestorEconomia().ejecutar(
+        "nombre-" + crypto.randomUUID(),
+        async leer => {
+            const usuarios = leer("usuarios.json") || {};
+            const clave = resolverClaveUsuario(id, usuarios);
+            if (!clave) {
+                return { cambios: { "usuarios.json": usuarios }, resultado: null };
+            }
 
-    guardarUsuario(id, usuario);
+            const usuario = usuarios[clave] || {
+                xp: 0, nivel: 1, coins: 0, mensajes: 0,
+                daily: 0, racha: 0, nombre: ""
+            };
+
+            if (usuario.nombre !== nombre) {
+                usuario.nombre = nombre;
+                usuarios[clave] = usuario;
+            }
+
+            return {
+                cambios: { "usuarios.json": usuarios },
+                resultado: usuario
+            };
+        }
+    );
+
+    return transaccion.resultado;
 }
 
 // ==========================================
@@ -250,37 +275,120 @@ function xpNecesaria(nivel) {
 // ==========================================
 
 async function agregarXP(id, cantidad = XP_POR_MENSAJE, opciones = {}) {
-    const usuario = obtenerUsuario(id);
-    if (!usuario) return { usuario: null, subioNivel: false, xpOtorgada: 0, nivelesGanados: 0, monedasNivel: 0, motivo: 'identidad_invalida' };
+    if (!normalizarIdentidad(id)) {
+        return {
+            usuario: null, subioNivel: false, xpOtorgada: 0,
+            nivelesGanados: 0, monedasNivel: 0, motivo: "identidad_invalida"
+        };
+    }
+
     const solicitada = Math.floor(Number(cantidad));
-    if (!Number.isFinite(solicitada) || solicitada <= 0) return { usuario, subioNivel: false, xpOtorgada: 0, nivelesGanados: 0, monedasNivel: 0, motivo: 'cantidad_invalida' };
+    if (!Number.isFinite(solicitada) || solicitada <= 0) {
+        return {
+            usuario: obtenerUsuario(id), subioNivel: false, xpOtorgada: 0,
+            nivelesGanados: 0, monedasNivel: 0, motivo: "cantidad_invalida"
+        };
+    }
+
     const ahora = Number.isFinite(opciones.ahora) ? opciones.ahora : Date.now();
     const messageId = opciones.messageId ? String(opciones.messageId) : null;
-    if (messageId && usuario.xpUltimoMensajeId === messageId) return { usuario, subioNivel: false, xpOtorgada: 0, nivelesGanados: 0, monedasNivel: 0, motivo: 'mensaje_duplicado' };
-    const fechaHoy = obtenerFechaColombia(ahora);
-    let xpDiariaActual = Math.max(0, Number(usuario.xpDiario) || 0);
-    if (usuario.xpFechaColombia !== fechaHoy) xpDiariaActual = 0;
-    const ultimaXP = Number(usuario.xpUltimoMensajeAt) || 0;
-    if (ultimaXP > 0 && ahora - ultimaXP < TIEMPO_XP) return { usuario, subioNivel: false, xpOtorgada: 0, nivelesGanados: 0, monedasNivel: 0, motivo: 'cooldown' };
-    const xpOtorgada = Math.min(solicitada, Math.max(0, MAX_XP_DIARIA - xpDiariaActual));
-    if (xpOtorgada <= 0) return { usuario, subioNivel: false, xpOtorgada: 0, nivelesGanados: 0, monedasNivel: 0, motivo: 'limite_diario' };
-    usuario.xp = Math.max(0, Number(usuario.xp) || 0) + xpOtorgada;
-    usuario.nivel = Math.max(1, Number(usuario.nivel) || 1);
-    usuario.coins = Math.max(0, Number(usuario.coins) || 0);
-    usuario.mensajes = Math.max(0, Number(usuario.mensajes) || 0) + 1;
-    usuario.xpFechaColombia = fechaHoy;
-    usuario.xpDiario = xpDiariaActual + xpOtorgada;
-    usuario.xpUltimoMensajeAt = ahora;
-    if (messageId) usuario.xpUltimoMensajeId = messageId;
-    let nivelesGanados = 0;
-    while (usuario.xp >= xpNecesaria(usuario.nivel)) {
-        usuario.xp -= xpNecesaria(usuario.nivel);
-        usuario.nivel++;
-        usuario.coins += 50;
-        nivelesGanados++;
-    }
-    await guardarUsuario(id, usuario);
-    return { usuario, subioNivel: nivelesGanados > 0, xpOtorgada, nivelesGanados, monedasNivel: nivelesGanados * 50, motivo: 'otorgada' };
+
+    const transaccion = await obtenerGestorEconomia().ejecutar(
+        "xp-" + crypto.randomUUID(),
+        async leer => {
+            const usuarios = leer("usuarios.json") || {};
+            const clave = resolverClaveUsuario(id, usuarios);
+
+            if (!clave) {
+                return {
+                    cambios: { "usuarios.json": usuarios },
+                    resultado: {
+                        usuario: null, subioNivel: false, xpOtorgada: 0,
+                        nivelesGanados: 0, monedasNivel: 0,
+                        motivo: "identidad_invalida"
+                    }
+                };
+            }
+
+            const usuario = usuarios[clave] || {
+                xp: 0, nivel: 1, coins: 0, mensajes: 0,
+                daily: 0, racha: 0, nombre: ""
+            };
+
+            const resultado = motivo => ({
+                usuario, subioNivel: false, xpOtorgada: 0,
+                nivelesGanados: 0, monedasNivel: 0, motivo
+            });
+
+            const procesados = Array.isArray(usuario.xpMensajesProcesados)
+                ? usuario.xpMensajesProcesados.map(String)
+                : (usuario.xpUltimoMensajeId ? [String(usuario.xpUltimoMensajeId)] : []);
+
+            if (messageId && procesados.includes(messageId)) {
+                return {
+                    cambios: { "usuarios.json": usuarios },
+                    resultado: resultado("mensaje_duplicado")
+                };
+            }
+
+            const fecha = obtenerFechaColombia(ahora);
+            let xpDiaria = Math.max(0, Number(usuario.xpDiario) || 0);
+            if (usuario.xpFechaColombia !== fecha) xpDiaria = 0;
+
+            const ultima = Number(usuario.xpUltimoMensajeAt) || 0;
+            if (ultima > 0 && ahora - ultima < TIEMPO_XP) {
+                return {
+                    cambios: { "usuarios.json": usuarios },
+                    resultado: resultado("cooldown")
+                };
+            }
+
+            const otorgada = Math.min(solicitada, Math.max(0, MAX_XP_DIARIA - xpDiaria));
+            if (otorgada <= 0) {
+                return {
+                    cambios: { "usuarios.json": usuarios },
+                    resultado: resultado("limite_diario")
+                };
+            }
+
+            usuario.xp = Math.max(0, Number(usuario.xp) || 0) + otorgada;
+            usuario.nivel = Math.max(1, Number(usuario.nivel) || 1);
+            usuario.coins = Math.max(0, Number(usuario.coins) || 0);
+            usuario.mensajes = Math.max(0, Number(usuario.mensajes) || 0) + 1;
+            usuario.xpFechaColombia = fecha;
+            usuario.xpDiario = xpDiaria + otorgada;
+            usuario.xpUltimoMensajeAt = ahora;
+
+            if (messageId) {
+                procesados.push(messageId);
+                usuario.xpMensajesProcesados = procesados.slice(-100);
+                usuario.xpUltimoMensajeId = messageId;
+            }
+
+            let niveles = 0;
+            while (usuario.xp >= xpNecesaria(usuario.nivel)) {
+                usuario.xp -= xpNecesaria(usuario.nivel);
+                usuario.nivel++;
+                usuario.coins += 50;
+                niveles++;
+            }
+
+            usuarios[clave] = usuario;
+            return {
+                cambios: { "usuarios.json": usuarios },
+                resultado: {
+                    usuario,
+                    subioNivel: niveles > 0,
+                    xpOtorgada: otorgada,
+                    nivelesGanados: niveles,
+                    monedasNivel: niveles * 50,
+                    motivo: "otorgada"
+                }
+            };
+        }
+    );
+
+    return transaccion.resultado;
 }
 // ==========================================
 // Aplicar XP de recompensas especiales

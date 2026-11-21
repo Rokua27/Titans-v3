@@ -1,5 +1,13 @@
 const { cargarEquipos } = require("../utils/equipos");
-const torneo = require("../database/torneo.json");
+const { leerJSON } = require("../utils/database");
+
+const torneo = leerJSON("torneo.json") || {
+    nombre: "LIGA TITANS TEAM",
+    creador: "Por definir",
+    proximaFecha: "Por definir",
+    horaInicio: "Por definir",
+    estado: "Sin información"
+};
 
 module.exports = {
 

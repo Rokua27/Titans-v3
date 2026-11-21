@@ -1,29 +1,134 @@
 const monitor = require("../utils/monitor");
 const { leerJSON, guardarJSON } = require("../utils/database");
-const { obtenerUsuario, guardarUsuario, aplicarXPRecompensa } = require("../utils/comunidad");
+const {
+  obtenerUsuario,
+  resolverClaveUsuario,
+  normalizarIdentidad,
+  aplicarXPRecompensa
+} = require("../utils/comunidad");
+const {
+  crearGestorRecompensasRaid,
+  raidDerrotado,
+  marcarRaidPendiente,
+  cerrarRaid
+} = require("../utils/raidRecompensas");
+const { gestor } = require("../utils/economiaCompartida");
+const { resolverInventario } = require("../utils/inventarioTitansB");
 
 const cooldowns = new Map();
+const raidsEnProceso = new Set();
+
+const gestorRaidRecompensas = crearGestorRecompensasRaid({
+  gestor,
+  resolverClaveUsuario,
+  normalizarIdentidad,
+  aplicarXPRecompensa,
+  resolverInventario
+});
+
+function construirMensajeFinal(raid) {
+  const ranking = Object.values(raid.participantes || {})
+    .sort((a, b) => b.dañoTotal - a.dañoTotal)
+    .slice(0, 5);
+
+  let top = "";
+  ranking.forEach((p, i) => {
+    const medalla = ["🥇", "🥈", "🥉", "🏅", "🏅"][i];
+    top += `${medalla} *${p.nombre}* — ${p.dañoTotal}\n`;
+  });
+
+  return `╔══════════════════════════════╗
+║     🏆 𝗥𝗔𝗜𝗗 𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗔𝗗𝗢 🏆     ║
+╚══════════════════════════════╝
+
+🐉 *¡EL TITÁN DEL VACÍO HA SIDO DERROTADO!*
+
+⚔️ La comunidad unió sus fuerzas y logró destruir al jefe legendario.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📊 *TOP DAÑO*
+
+${top}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎁 *RECOMPENSAS ENTREGADAS*
+
+💰 +500 monedas
+⭐ +300 XP
+📦 +1 Caja Épica
+
+⚡ Todos los participantes recibieron automáticamente las recompensas.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🏆 𝗟𝗜𝗚𝗔 𝗧𝗜𝗧𝗔𝗡𝗦 𝗧𝗘𝗔𝗠
+🤖 𝗧𝗶𝘁𝗮𝗻𝘀𝗕𝗼𝘁 𝘃𝟯 • 𝗣𝗿𝗲𝗺𝗶𝘂𝗺 𝗘𝘀𝗽𝗼𝗿𝘁𝘀
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+}
+
+async function finalizarRaidPendiente(sock, from, raid) {
+  if (!raidDerrotado(raid)) {
+    throw new Error("El Raid todavía no está derrotado.");
+  }
+
+  if (raid.estadoRecompensas !== "pendiente") {
+    marcarRaidPendiente(raid);
+    guardarJSON("raid.json", raid);
+  }
+
+  // Cada perfil e inventario tiene su propia marca antiduplicados.
+  const entrega = await gestorRaidRecompensas.entregar(raid);
+
+  if (!entrega.completo) {
+    throw new Error("La entrega de recompensas quedó incompleta.");
+  }
+
+  console.log("✅ Recompensas del Raid verificadas:", entrega);
+
+  // Si el envío falla, el Raid sigue pendiente y se puede reintentar.
+  await sock.sendMessage(from, {
+    text: construirMensajeFinal(raid)
+  });
+
+  cerrarRaid(raid);
+  guardarJSON("raid.json", raid);
+}
 
 module.exports = {
   nombre: "golpear",
-
-alias: [],
-
-categoria: "eventos",
-
-descripcion: "Ataca al jefe del Raid Global.",
-
-permisos: ["usuario"],
-
-uso: "!golpear",
+  alias: [],
+  categoria: "eventos",
+  descripcion: "Ataca al jefe del Raid Global.",
+  permisos: ["usuario"],
+  uso: "!golpear",
 
   async ejecutar(sock, from, args, msg) {
+    let raidEnProceso = null;
+
     try {
       const sender = msg.key.participant || msg.key.remoteJid;
-
       const raid = leerJSON("raid.json");
-      const usuarios = {};
-      const inventarios = leerJSON("inventarios.json") || {};
+
+      if (!raid || typeof raid !== "object") {
+        throw new Error("No se pudo leer el estado del Raid.");
+      }
+
+      // Evitar que dos comandos procesen simultáneamente el mismo Raid.
+      const claveRaid = String(raid.fechaInicio || "sin-fecha");
+
+      if (raidsEnProceso.has(claveRaid)) {
+        return await sock.sendMessage(from, {
+          text: "⏳ El Raid está procesando un ataque o sus recompensas. Espera un momento."
+        });
+      }
+
+      raidsEnProceso.add(claveRaid);
+      raidEnProceso = claveRaid;
+
+      // Recuperación: se ejecuta antes de permitir cualquier ataque.
+      if (raidDerrotado(raid)) {
+        await finalizarRaidPendiente(sock, from, raid);
+        return;
+      }
 
       if (!raid.activo) {
         return await sock.sendMessage(from, {
@@ -31,7 +136,7 @@ uso: "!golpear",
         });
       }
 
-      // Cooldown 10s
+      // Cooldown de ataque: 10 segundos.
       const ahora = Date.now();
       const ultimo = cooldowns.get(sender);
 
@@ -45,34 +150,30 @@ uso: "!golpear",
 
       cooldowns.set(sender, ahora);
 
-     const usuario = obtenerUsuario(sender);
+      const usuario = obtenerUsuario(sender);
       const nombre = usuario?.nombre || "Titán";
 
-      // Generar daño
+      // Generar daño: se conservan las probabilidades originales.
       const random = Math.random();
-
       let daño = 0;
       let tipo = "⚔️ GOLPE";
 
-      // 10% fallo
       if (random < 0.10) {
         daño = 0;
         tipo = "☠️ FALLO";
-      }
-      // 15% crítico
-      else if (random < 0.25) {
+      } else if (random < 0.25) {
         daño = Math.floor((Math.random() * 450) + 150) * 3;
         tipo = "💥 CRÍTICO";
-      }
-      // Normal
-      else {
+      } else {
         daño = Math.floor((Math.random() * 450) + 50);
       }
 
-      // Aplicar daño
       raid.vidaActual = Math.max(0, raid.vidaActual - daño);
 
-      // Registrar participante
+      if (!raid.participantes || typeof raid.participantes !== "object") {
+        raid.participantes = {};
+      }
+
       if (!raid.participantes[sender]) {
         raid.participantes[sender] = {
           nombre,
@@ -85,10 +186,17 @@ uso: "!golpear",
       raid.participantes[sender].golpes += 1;
       raid.participantes[sender].nombre = nombre;
 
+      // Si este ataque derrota al jefe, se persiste la derrota
+      // y el estado pendiente en la misma escritura.
+      if (raid.vidaActual <= 0) {
+        marcarRaidPendiente(raid);
+      }
+
       guardarJSON("raid.json", raid);
 
-      // Mensaje de ataque
-      const porcentaje = Math.floor((raid.vidaActual / raid.vidaMax) * 100);
+      const porcentaje = Math.floor(
+        (raid.vidaActual / raid.vidaMax) * 100
+      );
 
       await sock.sendMessage(from, {
         text:
@@ -115,88 +223,27 @@ ${tipo}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
       });
 
-      // ¿Murió el jefe?
-      if (raid.vidaActual <= 0) {
-
-        // Ordenar leaderboard
-        const ranking = Object.values(raid.participantes)
-          .sort((a, b) => b.dañoTotal - a.dañoTotal)
-          .slice(0, 5);
-
-        let top = "";
-        ranking.forEach((p, i) => {
-          const medalla = ["🥇", "🥈", "🥉", "🏅", "🏅"][i];
-          top += `${medalla} *${p.nombre}* — ${p.dañoTotal}\n`;
-        });
-
-        // Recompensas automáticas
-        for (const id of Object.keys(raid.participantes)) {
-
-       const jugador = obtenerUsuario(id);
-
-const resultadoXP = aplicarXPRecompensa(jugador, 300);
-
-if (!resultadoXP || resultadoXP.motivo !== "otorgada") {
-  throw new Error("No se pudo aplicar la XP de recompensa del Raid.");
-}
-
-jugador.coins = (jugador.coins || 0) + 500;
-
-guardarUsuario(id, jugador);
-
-          // Dar caja épica
-          if (!inventarios[id]) {
-            inventarios[id] = { cajas: 0, objetos: [] };
-          }
-
-          inventarios[id].cajas += 1;
-        }
-
-        // Mensaje final épico
-        const mensajeFinal =
-`╔══════════════════════════════╗
-║     🏆 𝗥𝗔𝗜𝗗 𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗔𝗗𝗢 🏆     ║
-╚══════════════════════════════╝
-
-🐉 *¡EL TITÁN DEL VACÍO HA SIDO DERROTADO!*
-
-⚔️ La comunidad unió sus fuerzas y logró destruir al jefe legendario.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-📊 *TOP DAÑO*
-
-${top}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-🎁 *RECOMPENSAS ENTREGADAS*
-
-💰 +500 monedas
-⭐ +300 XP
-📦 +1 Caja Épica
-
-⚡ Todos los participantes recibieron automáticamente las recompensas.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🏆 𝗟𝗜𝗚𝗔 𝗧𝗜𝗧𝗔𝗡𝗦 𝗧𝗘𝗔𝗠
-🤖 𝗧𝗶𝘁𝗮𝗻𝘀𝗕𝗼𝘁 𝘃𝟯 • 𝗣𝗿𝗲𝗺𝗶𝘂𝗺 𝗘𝘀𝗽𝗼𝗿𝘁𝘀
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
-
-        await sock.sendMessage(from, { text: mensajeFinal });
-
-        // Resetear raid
-        raid.activo = false;
-        raid.vidaActual = raid.vidaMax;
-        raid.participantes = {};
-        raid.iniciadoPor = null;
-        raid.fechaInicio = 0;
-
-        guardarJSON("raid.json", raid);
-        guardarJSON("inventarios.json", inventarios);
+      if (raidDerrotado(raid)) {
+        await finalizarRaidPendiente(sock, from, raid);
       }
 
     } catch (error) {
       console.error("❌ Error golpear:", error);
-        monitor.registrarEvento("ERROR_SISTEMA",{estado:"ERROR",componente:"GOLPEAR",codigo:"SYSTEM_ERROR",descripcion:error.message});
+
+      try {
+        monitor.registrarEvento("ERROR_SISTEMA", {
+          estado: "ERROR",
+          componente: "GOLPEAR",
+          codigo: "SYSTEM_ERROR",
+          descripcion: error.message
+        });
+      } catch (errorMonitor) {
+        console.error("❌ Error registrando evento:", errorMonitor);
+      }
+    } finally {
+      if (raidEnProceso !== null) {
+        raidsEnProceso.delete(raidEnProceso);
+      }
     }
   }
 };

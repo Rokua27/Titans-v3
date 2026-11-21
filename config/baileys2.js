@@ -7,10 +7,77 @@ const {
 
 const P = require("pino");
 
+const pathAuth = require("path");
+const fsAuth = require("fs");
+
+// Directorio independiente para la nueva autenticación.
+const AUTH_DIR = pathAuth.resolve(
+    process.env.TITANS_AUTH_DIR || "./sessions-qr"
+);
+
+// Sesión original: nunca debe compartirse ni superponerse.
+const LEGACY_AUTH_DIR = pathAuth.resolve("./sessions");
+
+// Resuelve también rutas inexistentes y enlaces simbólicos.
+function canonicalAuthPath(target) {
+    let current = pathAuth.resolve(target);
+    const remaining = [];
+
+    while (!fsAuth.existsSync(current)) {
+        const parent = pathAuth.dirname(current);
+
+        if (parent === current) {
+            throw new Error("No se pudo resolver la ruta de autenticación.");
+        }
+
+        remaining.unshift(pathAuth.basename(current));
+        current = parent;
+    }
+
+    const resolved = pathAuth.join(
+        fsAuth.realpathSync(current),
+        ...remaining
+    );
+
+    return pathAuth.resolve(resolved);
+}
+
+function authPathsOverlap(a, b) {
+    const relative = pathAuth.relative(a, b);
+
+    return relative === "" ||
+        (!relative.startsWith(".." + pathAuth.sep) &&
+         relative !== ".." &&
+         !pathAuth.isAbsolute(relative));
+}
+
+const authRealPath = canonicalAuthPath(AUTH_DIR);
+const legacyRealPath = canonicalAuthPath(LEGACY_AUTH_DIR);
+
+if (authPathsOverlap(authRealPath, legacyRealPath) ||
+    authPathsOverlap(legacyRealPath, authRealPath)) {
+    throw new Error(
+        "SEGURIDAD: las rutas de autenticación se superponen."
+    );
+}
+
+if (fsAuth.existsSync(AUTH_DIR) &&
+    !fsAuth.statSync(AUTH_DIR).isDirectory()) {
+    throw new Error(
+        "SEGURIDAD: el destino de autenticación no es un directorio."
+    );
+}
+
+console.log("🔐 Directorio de autenticación:", AUTH_DIR);
+console.log("🔐 Sesión original protegida:", legacyRealPath);
+console.log("✅ Rutas independientes y sin superposición.");
+
 const manejarMensajes = require("../events/messages");
 const { iniciarComunidadBot } = require("../utils/comunidadBot/motor");
 const manejarParticipantes = require("../events/groupParticipants");
 const monitor = require("../utils/monitor");
+const { activarColaLogros, desactivarColaLogros } = require("../utils/colaAnunciosLogros");
+const { activarColaEntregasPremios, desactivarColaEntregasPremios } = require("../utils/economiaCompartida");
 
 let reconexionProgramada = null;
 let creandoSocket = false;
@@ -87,7 +154,7 @@ async function iniciarBot({ origen = "MANUAL" } = {}) {
     // 🛡️ Iniciar núcleo TitansB Monitor
     monitor.iniciarMonitor();
 
-    const { state, saveCreds } = await useMultiFileAuthState("./sessions");
+    const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
 
     const { version } = await fetchLatestBaileysVersion();
 
@@ -151,6 +218,15 @@ if (connection === "open") {
         console.log("⏭️ Open ignorado: socket antiguo.");
         return;
     }
+
+    // Activar cola persistente de anuncios de logros.
+    activarColaLogros(sock).catch(error => {
+        console.error("❌ Error activando cola de logros:", error.message);
+    });
+
+    activarColaEntregasPremios(sock).catch(error => {
+        console.error("TitansB | Error activando cola de entregas:", error.message);
+    });
 
     // Limpiar QR al conectar
     global.qrCode = null;
@@ -247,6 +323,10 @@ if (codigo === 440) {
 // 🛡️ INVALIDAR SOCKET CERRADO
 // ==========================================
 if (sock === sockActual) {
+    // Detener la cola antes de invalidar el socket.
+    desactivarColaLogros(sock);
+    desactivarColaEntregasPremios(sock);
+
     console.log("🧹 Invalidando socket cerrado.");
     sockActual = null;
 

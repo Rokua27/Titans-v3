@@ -1,39 +1,31 @@
-const { obtenerUsuario, guardarUsuario, aplicarXPRecompensa } = require("../utils/comunidad");
+const { daily } = require("../utils/economiaCompartida");
 
 module.exports = {
-  nombre: "daily",
+    nombre: "daily",
+    categoria: "jugador",
+    descripcion: "Reclama tu recompensa diaria.",
+    uso: "!daily",
+    permisos: ["usuario"],
+    alias: [],
 
-categoria: "jugador",
+    async ejecutar(sock, from, args, msg) {
+        try {
+            const sender = msg.key.participant || msg.key.remoteJid;
+            const ahora = Date.now();
 
-descripcion: "Reclama tu recompensa diaria.",
+            const reclamo = await daily.reclamar(sender, ahora);
 
-uso: "!daily",
+            if (!reclamo.ok && reclamo.motivo === "cooldown") {
+                const horas = Math.floor(
+                    reclamo.restante / (1000 * 60 * 60)
+                );
 
-permisos: ["usuario"],
+                const minutos = Math.floor(
+                    (reclamo.restante % (1000 * 60 * 60)) / (1000 * 60)
+                );
 
-alias: [],
-
-  async ejecutar(sock, from, args, msg) {
-    try {
-      const sender = msg.key.participant || msg.key.remoteJid;
-      const usuario = obtenerUsuario(sender);
-
-      const ahora = Date.now();
-      const cooldown = 24 * 60 * 60 * 1000; // 24 horas
-      const restante = cooldown - (ahora - usuario.daily);
-
-      // ======================================
-      // ⏰ COOLDOWN
-      // ======================================
-
-      if (usuario.daily && restante > 0) {
-        const horas = Math.floor(restante / (1000 * 60 * 60));
-        const minutos = Math.floor(
-          (restante % (1000 * 60 * 60)) / (1000 * 60)
-        );
-
-        return await sock.sendMessage(from, {
-          text:
+                return await sock.sendMessage(from, {
+                    text:
 `╔══════════════════════════════╗
 ║      ⏰ 𝗗𝗔𝗜𝗟𝗬 𝗖𝗢𝗢𝗟𝗗𝗢𝗪𝗡 ⏰     ║
 ╚══════════════════════════════╝
@@ -47,7 +39,7 @@ alias: [],
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🔥 Racha actual: *${usuario.racha} días*
+🔥 Racha actual: *${reclamo.racha} días*
 
 🎯 Vuelve más tarde para seguir acumulando recompensas.
 
@@ -56,50 +48,17 @@ alias: [],
 🎮 Economía • Progresión • Comunidad
 🤖 𝗧𝗶𝘁𝗮𝗻𝘀𝗕𝗼𝘁 𝘃𝟯 • 𝗣𝗿𝗲𝗺𝗶𝘂𝗺 𝗘𝘀𝗽𝗼𝗿𝘁𝘀
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
-        });
-      }
+                });
+            }
 
-      // ======================================
-      // 🔥 CALCULAR RACHA
-      // ======================================
+            if (!reclamo.ok || !reclamo.resultado) {
+                throw new Error("No se pudo confirmar la recompensa diaria.");
+            }
 
-      const unDia = 24 * 60 * 60 * 1000;
+            const resultado = reclamo.resultado;
 
-      if (usuario.daily && ahora - usuario.daily <= unDia + (2 * 60 * 60 * 1000)) {
-        usuario.racha += 1;
-      } else {
-        usuario.racha = 1;
-      }
-
-      // ======================================
-      // 🎁 RECOMPENSAS APROBADAS
-      // ======================================
-
-      const bonusRacha =
-        usuario.racha >= 14 ? 75 :
-        usuario.racha >= 7 ? 50 :
-        usuario.racha >= 4 ? 25 : 0;
-
-      const recompensaCoins = 300 + bonusRacha;
-      const recompensaXP = 25;
-
-      const resultadoXP = aplicarXPRecompensa(usuario, recompensaXP);
-
-      if (!resultadoXP || resultadoXP.motivo !== "otorgada") {
-        throw new Error("No se pudo aplicar la XP de la recompensa diaria.");
-      }
-
-      usuario.coins += recompensaCoins;
-      usuario.daily = ahora;
-
-      guardarUsuario(sender, usuario);
-
-      // ======================================
-      // 📢 ANUNCIO PREMIUM ESPORTS
-      // ======================================
-
-      await sock.sendMessage(from, {
-        text:
+            await sock.sendMessage(from, {
+                text:
 `╔══════════════════════════════╗
 ║      🎁 𝗗𝗔𝗜𝗟𝗬 𝗖𝗟𝗔𝗜𝗠 🎁      ║
 ╚══════════════════════════════╝
@@ -108,12 +67,12 @@ alias: [],
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-💰 +${recompensaCoins} monedas
-⭐ +${recompensaXP} XP
-${resultadoXP.monedasNivel > 0
-  ? `🏅 +${resultadoXP.monedasNivel} monedas por subir ${resultadoXP.nivelesGanados} nivel(es)`
-  : ""}
-🔥 Racha diaria: *${usuario.racha} días*
+💰 +${resultado.recompensaCoins} monedas
+⭐ +${resultado.recompensaXP} XP
+${resultado.monedasNivel > 0
+    ? `🏅 +${resultado.monedasNivel} monedas por subir ${resultado.nivelesGanados} nivel(es)`
+    : ""}
+🔥 Racha diaria: *${resultado.racha} días*
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -126,13 +85,13 @@ ${resultadoXP.monedasNivel > 0
 🎮 Economía • Progresión • Comunidad
 🤖 𝗧𝗶𝘁𝗮𝗻𝘀𝗕𝗼𝘁 𝘃𝟯 • 𝗣𝗿𝗲𝗺𝗶𝘂𝗺 𝗘𝘀𝗽𝗼𝗿𝘁𝘀
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
-      });
+            });
 
-    } catch (error) {
-      console.error("❌ Error daily:", error);
+        } catch (error) {
+            console.error("❌ Error daily:", error);
 
-      await sock.sendMessage(from, {
-        text:
+            await sock.sendMessage(from, {
+                text:
 `╔══════════════════════════════╗
 ║       ❌ 𝗘𝗥𝗥𝗢𝗥 ❌        ║
 ╚══════════════════════════════╝
@@ -143,7 +102,7 @@ No pude entregar la recompensa diaria.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🤖 𝗧𝗶𝘁𝗮𝗻𝘀𝗕𝗼𝘁 𝘃𝟯`
-      });
+            });
+        }
     }
-  }
 };
