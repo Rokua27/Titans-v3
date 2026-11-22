@@ -64,7 +64,10 @@ La rareza indicada no existe.
 
 📦 También puedes usar *!abrir* sin argumentos para las cajas genéricas antiguas.
 
-🏆 *LIGA TITANS TEAM*`
+🎁 *¡PREMIOS SORPRENDENTES TE ESPERAN!*
+💎 50 o 86 diamantes
+🎟️ Pase semanal de diamantes
+👑 Pase semanal Elite`
                 });
             }
 

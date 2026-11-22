@@ -75,7 +75,10 @@ Elige una de las siguientes opciones:
 🛒 Comando: *!caja rareza*
 🎒 Capacidad: 10 cajas por rareza
 
-🏆 *LIGA TITANS TEAM*`
+🎁 *¡PREMIOS SORPRENDENTES TE ESPERAN!*
+💎 50 o 86 diamantes
+🎟️ Pase semanal de diamantes
+👑 Pase semanal Elite`
                 });
             }
 
@@ -195,7 +198,10 @@ ${NOMBRES[rareza]}
 🔓 ¿Listo para descubrir tu recompensa?
 📖 Abre tu caja con: *!abrir ${rareza}*
 
-🏆 *LIGA TITANS TEAM*`;
+🎁 *¡PREMIOS SORPRENDENTES TE ESPERAN!*
+💎 50 o 86 diamantes
+🎟️ Pase semanal de diamantes
+👑 Pase semanal Elite`;
 
             await enviarMensajeTitans(sock, from, { text: mensaje });
 

@@ -38,12 +38,24 @@ module.exports = {
             if (!Number.isSafeInteger(apuesta) || apuesta < COSTO_MINIMO) {
                 return enviarMensajeTitans(sock, from, {
                     text:
-`🎰 𝗧𝗜𝗧𝗔𝗡𝗦 𝗦𝗟𝗢𝗧𝗦
+`📢 *TITANS TEAM • TRAGAMONEDAS 🎰*
 
-💰 Apuesta mínima: ${COSTO_MINIMO} monedas
+╔══════════════════════════════╗
+║       🎰 TRAGAMONEDAS        ║
+╚══════════════════════════════╝
 
-Ejemplo:
-!slots 100`
+💰 *Apuesta mínima:* ${COSTO_MINIMO} monedas
+
+🎮 *¿CÓMO JUGAR?*
+Escribe tu apuesta para activar la máquina.
+
+📝 *Ejemplo:* !slots 100
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎁 *¡PREMIOS SORPRENDENTES TE ESPERAN!*
+💎 50 o 86 diamantes
+🎟️ Pase semanal de diamantes
+👑 Pase semanal Elite`
                 });
             }
 
