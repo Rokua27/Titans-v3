@@ -17,7 +17,7 @@ module.exports = {
             const usuario = Number.parseInt(args[0], 10);
 
             if (!Number.isSafeInteger(usuario) || usuario <= 0) {
-                return await sock.sendMessage(from, {
+                return await enviarMensajeTitans(sock, from, {
                     text: `╔══════════════════════════════╗
 ║      🎰 𝗖𝗢𝗜𝗡 𝗙𝗟𝗜𝗣 🎰       ║
 ╚══════════════════════════════╝
@@ -38,7 +38,7 @@ module.exports = {
             }
 
             if (usuario < 50) {
-                return await sock.sendMessage(from, {
+                return await enviarMensajeTitans(sock, from, {
                     text: "❌ La apuesta mínima es *50 monedas*."
                 });
             }
@@ -67,7 +67,7 @@ module.exports = {
 
             if (!resultadoOperacion.ok) {
                 if (resultadoOperacion.motivo === "limite") {
-                    return await sock.sendMessage(from, {
+                    return await enviarMensajeTitans(sock, from, {
                         text: `╔══════════════════════════════╗
 ║     🚫 LÍMITE ALCANZADO      ║
 ╚══════════════════════════════╝
@@ -87,7 +87,7 @@ CoinFlip
                 }
 
                 if (resultadoOperacion.motivo === "saldo_insuficiente") {
-                    return await sock.sendMessage(from, {
+                    return await enviarMensajeTitans(sock, from, {
                         text: `╔══════════════════════════════╗
 ║      💸 𝗙𝗢𝗡𝗗𝗢𝗦 💸       ║
 ╚══════════════════════════════╝
@@ -108,7 +108,7 @@ No tienes suficientes monedas.
             const emojiResultado = juego.resultado === "cara" ? "🟡" : "⚫";
             const estado = juego.gano ? "🏆 ¡GANASTE!" : "💥 ¡PERDISTE!";
 
-            await sock.sendMessage(from, {
+            await enviarMensajeTitans(sock, from, {
                 text:
 `╔══════════════════════════════╗
 ║      🎰 𝗖𝗢𝗜𝗡 𝗙𝗟𝗜𝗣 🎰       ║
@@ -144,7 +144,7 @@ ${juego.gano
 
             // No se informa un fallo de apuesta si la transacción ya fue confirmada.
             if (!resultadoOperacion || !resultadoOperacion.ok) {
-                await sock.sendMessage(from, {
+                await enviarMensajeTitans(sock, from, {
                     text: `╔══════════════════════════════╗
 ║       ❌ 𝗘𝗥𝗥𝗢𝗥 ❌        ║
 ╚══════════════════════════════╝
@@ -160,3 +160,14 @@ No pude procesar la apuesta.
         }
     }
 };
+
+const PIE_TITANS = "🏆LIGA TITANS TEAM - TITANSB MIEMBRO VIRTUAL 🤖";
+
+async function enviarMensajeTitans(sock, from, contenido) {
+    if (contenido && typeof contenido.text === "string") {
+        contenido.text = contenido.text.includes(PIE_TITANS)
+            ? contenido.text
+            : `${contenido.text.trimEnd()}\n\n${PIE_TITANS}`;
+    }
+    return sock.sendMessage(from, contenido);
+}

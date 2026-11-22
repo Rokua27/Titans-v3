@@ -36,7 +36,7 @@ module.exports = {
             const apuesta = Number(args[0]);
 
             if (!Number.isSafeInteger(apuesta) || apuesta < COSTO_MINIMO) {
-                return sock.sendMessage(from, {
+                return enviarMensajeTitans(sock, from, {
                     text:
 `🎰 𝗧𝗜𝗧𝗔𝗡𝗦 𝗦𝗟𝗢𝗧𝗦
 
@@ -63,7 +63,7 @@ Ejemplo:
 
             if (!operacion.ok) {
                 if (operacion.motivo === "limite") {
-                    return await sock.sendMessage(from, {
+                    return await enviarMensajeTitans(sock, from, {
                         text:
 `🎰 𝗟𝗜́𝗠𝗜𝗧𝗘 𝗗𝗜𝗔𝗥𝗜𝗢
 
@@ -74,7 +74,7 @@ Ya utilizaste tus 3 partidas de Slots de hoy.
                     });
                 }
 
-                return sock.sendMessage(from, {
+                return enviarMensajeTitans(sock, from, {
                     text:
 `❌ 𝗠𝗢𝗡𝗘𝗗𝗔𝗦 𝗜𝗡𝗦𝗨𝗙𝗜𝗖𝗜𝗘𝗡𝗧𝗘𝗦
 
@@ -90,6 +90,19 @@ Ya utilizaste tus 3 partidas de Slots de hoy.
             const resultado = operacion.resultado;
             const premio = resultado.premio;
             const cambio = resultado.cambio;
+
+            const premioRealValido =
+                resultado.premioReal &&
+                resultado.premioReal.premio &&
+                typeof resultado.premioReal.premio.nombre === "string" &&
+                resultado.premioReal.premio.nombre.trim().length > 0;
+
+            const textoPremioReal = premioRealValido
+                ? `🎁 𝗣𝗥𝗘𝗠𝗜𝗢 𝗥𝗘𝗔𝗟 𝗢𝗕𝗧𝗘𝗡𝗜𝗗𝗢
+
+🏆 Premio: ${resultado.premioReal.premio.nombre}
+📩 La entrega continuará por privado. Estado: pendiente de datos para continuar con la entrega.`
+                : "";
 
             let resultadoTexto;
 
@@ -116,7 +129,7 @@ Recuperaste tu apuesta.
 La máquina se quedó con tu apuesta.`;
             }
 
-            await sock.sendMessage(from, {
+            await enviarMensajeTitans(sock, from, {
                 text:
 `╔══════════════════════════════╗
 ║       🎰 𝗧𝗜𝗧𝗔𝗡𝗦 𝗦𝗟𝗢𝗧𝗦       ║
@@ -128,6 +141,8 @@ La máquina se quedó con tu apuesta.`;
 💰 Apuesta: ${resultado.apuesta} monedas
 
 ${resultadoTexto}
+
+${textoPremioReal}
 
 📊 Cambio: ${cambio >= 0 ? "+" : ""}${cambio} monedas
 💰 Saldo: ${resultado.coins} monedas
@@ -146,10 +161,21 @@ ${resultadoTexto}
             console.error("❌ Error en slots:", error);
 
             if (!transaccionConfirmada) {
-                await sock.sendMessage(from, {
+                await enviarMensajeTitans(sock, from, {
                     text: "❌ No fue posible ejecutar Titans Slots."
                 });
             }
         }
     }
 };
+
+const PIE_TITANS = "🏆LIGA TITANS TEAM - TITANSB MIEMBRO VIRTUAL 🤖";
+
+async function enviarMensajeTitans(sock, from, contenido) {
+    if (contenido && typeof contenido.text === "string") {
+        contenido.text = contenido.text.includes(PIE_TITANS)
+            ? contenido.text
+            : `${contenido.text.trimEnd()}\n\n${PIE_TITANS}`;
+    }
+    return sock.sendMessage(from, contenido);
+}

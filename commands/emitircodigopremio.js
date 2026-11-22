@@ -38,16 +38,19 @@ module.exports = {
 
     if (!(await esSuperAdmin(sender))) {
       return sock.sendMessage(from, {
-        text: "⛔ Solo un SuperAdmin autorizado puede emitir códigos de premios."
+        text: "⛔ *TITANS TEAM · ACCESO RESTRINGIDO*\n\n🔐 Solo un SuperAdmin autorizado puede emitir códigos de premios."
       });
     }
 
     if (!Array.isArray(args) || args.length !== 1) {
       return sock.sendMessage(from, {
         text:
-          "⚠️ Uso incorrecto.\n\n" +
-          "Utiliza:\n" +
-          "!emitircodigopremio ID_PREMIO"
+          "⚠️ *TITANS TEAM · COMANDO INCORRECTO*\n\n" +
+          "╔══ 🔐 EMISIÓN DE CÓDIGO ══╗\n" +
+          "📌 Formato correcto:\n" +
+          "!emitircodigopremio ID_PREMIO\n" +
+          "╚══════════════════════╝\n\n" +
+          "🔒 Uso exclusivo de SuperAdmin."
       });
     }
 
@@ -60,7 +63,7 @@ module.exports = {
       mensajeId.length > 200
     ) {
       return sock.sendMessage(from, {
-        text: "❌ No se pudo identificar de forma segura la solicitud. No se emitió ningún código."
+        text: "⛔ *TITANS TEAM · SOLICITUD NO IDENTIFICADA*\n\n🔒 No fue posible verificar la solicitud de premio.\n🚫 No se emitió ningún código."
       });
     }
 
@@ -87,9 +90,12 @@ module.exports = {
       if (preparado.duplicada) {
         return sock.sendMessage(from, {
           text:
-            "ℹ️ Esta solicitud ya fue procesada o registrada.\n" +
-            `🆔 Premio: ${id}\n` +
-            "No se generó ni se reenvió otro código."
+            "⚠️ *TITANS TEAM · SOLICITUD DUPLICADA*\n\n" +
+            "╔══ 🔐 PROTECCIÓN DE PREMIOS ══╗\n" +
+            `🆔 Referencia: ${id}\n` +
+            "📋 Esta solicitud ya fue procesada o registrada.\n" +
+            "🚫 No se generó ni se reenvió otro código.\n" +
+            "╚══════════════════════════╝"
         });
       }
 
@@ -130,9 +136,13 @@ module.exports = {
 
         return sock.sendMessage(from, {
           text:
-            "⚠️ No se enviará el código porque la operación ya estaba iniciada o registrada.\n" +
-            `🆔 Premio: ${id}\n` +
-            "🔒 Estado sujeto a revisión. No se realizará un reenvío automático."
+            "⛔ *TITANS TEAM · OPERACIÓN BLOQUEADA*\n\n" +
+            "╔══ 🔐 SEGURIDAD DE PREMIOS ══╗\n" +
+            `🆔 Referencia: ${id}\n` +
+            "⚠️ La operación ya estaba iniciada o registrada.\n" +
+            "🔒 Estado sujeto a revisión.\n" +
+            "🚫 No se enviará ni reenviará el código automáticamente.\n" +
+            "╚══════════════════════════╝"
         });
       }
 
@@ -141,15 +151,18 @@ module.exports = {
       try {
         enviado = await sock.sendMessage(premio.ganadorId, {
           text:
-            "📢 *TITANS TEAM · VERIFICACIÓN DE PREMIO*\n\n" +
-            `🏆 Tu premio: ${premio.premio.nombre}\n` +
-            `🆔 Referencia: ${premio.id}\n\n` +
-            "🔐 Tu código privado de verificación es:\n\n" +
-            `*${codigo}*\n\n` +
-            "⏳ Este código vence en 10 minutos.\n" +
-            "🔒 Tienes un máximo de 5 intentos.\n\n" +
-            "Envía el código en este chat privado para continuar con el registro de tus datos.\n\n" +
-            "⚠️ No compartas este código con otras personas."
+            "📢 *TITANS TEAM · VERIFICACIÓN DE PREMIO* 👑\n\n" +
+            "╔══ 🔐 CÓDIGO PRIVADO ══╗\n" +
+            `🏆 Premio: ${premio.premio.nombre}\n` +
+            `🆔 Referencia: ${premio.id}\n` +
+            "╚══════════════════════╝\n\n" +
+            "🔑 Tu código de verificación es:\n\n" +
+            `      *${codigo}*\n\n` +
+            "⏳ Vigencia: 10 minutos.\n" +
+            "🔒 Intentos permitidos: máximo 5.\n\n" +
+            "📩 Envía este código en este mismo chat privado para continuar con el registro de tus datos.\n\n" +
+            "⚠️ No compartas este código con nadie. Es personal y confidencial.\n\n" +
+            "🏆LIGA TITANS TEAM - TITANSB MIEMBRO VIRTUAL 🤖"
         });
       } catch (error) {
         await marcarIncierto(id, mensajeId, idDesafio);
@@ -157,10 +170,14 @@ module.exports = {
 
         return sock.sendMessage(from, {
           text:
+            "⚠️ *TITANS TEAM · ENVÍO NO CONFIRMADO*\n\n" +
+            "╔══ 🔐 REVISIÓN DE SEGURIDAD ══╗\n" +
+            `🆔 Referencia: ${id}\n` +
             "⚠️ WhatsApp no permitió confirmar el resultado del envío.\n" +
-            `🆔 Premio: ${id}\n` +
             "🔒 Estado: INCIERTO.\n" +
-            "No se reenviará automáticamente. Requiere revisión manual."
+            "🚫 No se realizará un reenvío automático.\n" +
+            "🛡️ Requiere revisión manual antes de otra acción.\n" +
+            "╚══════════════════════════╝"
         });
       }
 
@@ -176,10 +193,14 @@ module.exports = {
 
         return sock.sendMessage(from, {
           text:
-            "⚠️ El envío no devolvió un identificador verificable de WhatsApp.\n" +
-            `🆔 Premio: ${id}\n` +
+            "⚠️ *TITANS TEAM · IDENTIFICADOR NO VERIFICADO*\n\n" +
+            "╔══ 🔐 REVISIÓN DE SEGURIDAD ══╗\n" +
+            `🆔 Referencia: ${id}\n` +
+            "⚠️ WhatsApp no devolvió un identificador verificable del mensaje.\n" +
             "🔒 Estado: INCIERTO.\n" +
-            "No se reenviará automáticamente. Requiere revisión manual."
+            "🚫 No se realizará un reenvío automático.\n" +
+            "🛡️ Requiere revisión manual antes de otra acción.\n" +
+            "╚══════════════════════════╝"
         });
       }
 
@@ -203,9 +224,14 @@ module.exports = {
 
         return sock.sendMessage(from, {
           text:
-            "⚠️ WhatsApp devolvió un ID de mensaje, pero no se pudo confirmar el envío en el registro.\n" +
-            `🆔 Premio: ${id}\n` +
-            "🔒 Estado sujeto a revisión manual. No se realizará otro envío."
+            "⛔ *TITANS TEAM · CONFIRMACIÓN PENDIENTE*\n\n" +
+            "╔══ 🔐 INTEGRIDAD DEL REGISTRO ══╗\n" +
+            `🆔 Referencia: ${id}\n` +
+            "⚠️ WhatsApp devolvió un identificador, pero el registro interno no confirmó el envío.\n" +
+            "🔒 Estado: INCIERTO.\n" +
+            "🚫 No se realizará otro envío.\n" +
+            "🛡️ Requiere revisión manual.\n" +
+            "╚══════════════════════════╝"
         });
       }
 
@@ -213,13 +239,16 @@ module.exports = {
 
       return sock.sendMessage(from, {
         text:
-          "╔══ 🔐 TITANS TEAM · CÓDIGO EMITIDO ══╗\n\n" +
-          `🆔 Premio: ${id}\n` +
+          "📢 *TITANS TEAM · CÓDIGO EMITIDO* 👑\n\n" +
+          "╔══ 🔐 REGISTRO DE PREMIO ══╗\n" +
+          `🆔 Referencia: ${id}\n` +
           `🏆 Ganador: ${premio.ganadorNombre}\n` +
           "📨 Código enviado al chat privado del ganador.\n" +
           "⏳ Vigencia: 10 minutos.\n" +
-          "🔒 Estado: ENVIADO y registrado.\n\n" +
-          "El código no se ha publicado en este grupo."
+          "🔒 Estado: ENVIADO Y REGISTRADO.\n" +
+          "╚══════════════════════════╝\n\n" +
+          "🔐 El código es privado y no se ha publicado en este grupo.\n\n" +
+          "🏆LIGA TITANS TEAM - TITANSB MIEMBRO VIRTUAL 🤖"
       });
     } catch (error) {
       codigo = null;
@@ -231,9 +260,13 @@ module.exports = {
 
       return sock.sendMessage(from, {
         text:
-          "❌ No se pudo completar la emisión del código.\n" +
-          `🆔 Premio: ${id}\n` +
-          "Verifica el registro y el estado del desafío antes de intentar otra operación."
+          "⛔ *TITANS TEAM · EMISIÓN NO COMPLETADA*\n\n" +
+          "╔══ 🔐 REVISIÓN DE PREMIO ══╗\n" +
+          `🆔 Referencia: ${id}\n` +
+          "⚠️ No se pudo completar la emisión del código.\n" +
+          "🔒 Verifica el registro y el estado del desafío.\n" +
+          "🚫 No repitas la operación sin revisar su estado.\n" +
+          "╚══════════════════════════╝"
       });
     }
   }

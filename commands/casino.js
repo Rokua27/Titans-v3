@@ -8,22 +8,26 @@ module.exports = {
     async ejecutar(sock, from, args, msg) {
         await sock.sendMessage(from, {
             text:
-`╔══════════════════════════════╗
-║       🎰 𝗧𝗜𝗧𝗔𝗡𝗦 𝗖𝗔𝗦𝗜𝗡𝗢       ║
-╚══════════════════════════════╝
+`📢 *TITANS TEAM · CASINO*
 
-💰 𝗘𝗖𝗢𝗡𝗢𝗠Í𝗔
+🎰 *¡BIENVENIDO AL CASINO TITANS!*
+
+Pon a prueba tu suerte, disfruta de las modalidades disponibles y demuestra tu habilidad.
+
+╔══ 🎰 CASINO TITANS 🎰 ══╗
+
+💰 *ECONOMÍA*
 
 🎁 !daily
-   Recompensa diaria.
+   Reclama tu recompensa diaria.
 
 🏆 !topcoins
-   Ranking de monedas.
+   Consulta el ranking de monedas.
 
-🎰 𝗝𝗨𝗘𝗚𝗢𝗦
+🎮 *JUEGOS*
 
 🎡 !ruleta
-   Ruleta Titans.
+   Pon a prueba tu suerte en la Ruleta Titans.
 
 🪙 !coinflip
    Cara o cruz.
@@ -34,25 +38,34 @@ module.exports = {
 🎲 !dados
    Duelo de dados contra TitansB.
 
-🎁 𝗣𝗥𝗘𝗠𝗜𝗢𝗦
+📦 *CAJAS E INVENTARIO*
 
 📦 !caja
-   Compra una Caja Premium.
+   Consulta y compra tus cajas.
 
 🔓 !abrir
-   Abre tus cajas.
+   Abre tus cajas y descubre recompensas.
 
 🎒 !inventario
-   Consulta tus premios.
+   Consulta tus objetos y recursos.
+
+╚══════════════════════════╝
+
+💰 Una sola economía para tus juegos.
+🎮 Administra tus monedas y recursos.
+🏆 ¡Juega, progresa y escala posiciones!
+
+💎 *¡TAMBIÉN PUEDES CONSEGUIR GRANDES RECOMPENSAS!*
+
+En las modalidades participantes podrás tener la oportunidad de obtener:
+💎 Diamantes.
+🎟️ Pases semanales de diamantes.
+👑 Pases semanales Elite.
+
+Los premios reales están disponibles únicamente en las modalidades habilitadas para entregarlos.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-💰 Una sola economía.
-🎮 Todos los juegos utilizan tus monedas.
-🏆 ¡Juega, gana y sube en el ranking!
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🏆 𝗟𝗜𝗚𝗔 𝗧𝗜𝗧𝗔𝗡𝗦 𝗧𝗘𝗔𝗠
-🤖 TitansB • Sistema Automático
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
+🏆LIGA TITANS TEAM - TITANSB MIEMBRO VIRTUAL 🤖`
         });
     }
 };

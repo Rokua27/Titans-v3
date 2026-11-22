@@ -20,7 +20,7 @@ module.exports = {
             const apuesta = Number(args[0]);
 
             if (!Number.isSafeInteger(apuesta) || apuesta < APUESTA_MINIMA) {
-                return await sock.sendMessage(from, {
+                return await enviarMensajeTitans(sock, from, {
                     text:
 `🎲 𝗧𝗜𝗧𝗔𝗡𝗦 𝗗𝗔𝗗𝗢𝗦
 
@@ -46,7 +46,7 @@ Ejemplo:
 
             if (!operacion.ok) {
                 if (operacion.motivo === "limite") {
-                    return await sock.sendMessage(from, {
+                    return await enviarMensajeTitans(sock, from, {
                         text:
 `🎲 𝗟𝗜́𝗠𝗜𝗧𝗘 𝗗𝗜𝗔𝗥𝗜𝗢
 
@@ -57,7 +57,7 @@ Ya utilizaste tus 3 partidas de Dados de hoy.
                     });
                 }
 
-                return await sock.sendMessage(from, {
+                return await enviarMensajeTitans(sock, from, {
                     text:
 `❌ 𝗠𝗢𝗡𝗘𝗗𝗔𝗦 𝗜𝗡𝗦𝗨𝗙𝗜𝗖𝗜𝗘𝗡𝗧𝗘𝗦
 
@@ -92,7 +92,7 @@ Los dos sacaron el mismo número.
 💰 Tu apuesta ha sido devuelta.`;
             }
 
-            await sock.sendMessage(from, {
+            await enviarMensajeTitans(sock, from, {
                 text:
 `╔══════════════════════════════╗
 ║       🎲 𝗧𝗜𝗧𝗔𝗡𝗦 𝗗𝗔𝗗𝗢𝗦       ║
@@ -125,10 +125,21 @@ ${textoResultado}
             console.error("❌ Error en dados:", error);
 
             if (!transaccionConfirmada) {
-                await sock.sendMessage(from, {
+                await enviarMensajeTitans(sock, from, {
                     text: "❌ No fue posible ejecutar Titans Dados."
                 });
             }
         }
     }
 };
+
+const PIE_TITANS = "🏆LIGA TITANS TEAM - TITANSB MIEMBRO VIRTUAL 🤖";
+
+async function enviarMensajeTitans(sock, from, contenido) {
+    if (contenido && typeof contenido.text === "string") {
+        contenido.text = contenido.text.includes(PIE_TITANS)
+            ? contenido.text
+            : `${contenido.text.trimEnd()}\n\n${PIE_TITANS}`;
+    }
+    return sock.sendMessage(from, contenido);
+}

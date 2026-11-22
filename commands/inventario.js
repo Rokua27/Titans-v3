@@ -25,10 +25,17 @@ module.exports = {
             const resuelto = resolverInventario(sender, inventarios);
 
             if (!resuelto.ok) {
-                return await sock.sendMessage(from, {
+                return await enviarMensajeTitans(sock, from, {
                     text:
-                        "⚠️ No puedo determinar tu inventario con seguridad. " +
-                        "No se realizó ningún cambio. Contacta a administración."
+`⚠️ *TITANS TEAM · VALIDACIÓN DE INVENTARIO*
+
+No fue posible identificar tu inventario de forma segura.
+
+🔐 No se realizó ningún cambio en tus objetos ni cajas.
+
+Si el problema continúa, contacta a administración.
+
+🏆 *LIGA TITANS TEAM*`
                 });
             }
 
@@ -44,21 +51,22 @@ module.exports = {
                 ).join("\n");
 
             const mensaje =
-`📢 *TITANS TEAM · INVENTARIO*
+`📢 *TITANS TEAM · CENTRO DE INVENTARIO*
 
 ╔══════════════════════════════╗
-║        🎒 INVENTARIO        ║
+║       🎒 MI ALMACENAMIENTO   ║
 ╚══════════════════════════════╝
 
-👤 *${usuario?.nombre || "Titán"}*
+👤 Titán: *${usuario?.nombre || "Titán"}*
 
-📦 *CAJAS GENÉRICAS*
-${inv.cajas}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📦 *RESERVA DE CAJAS GENÉRICAS*
+🎁 Cantidad disponible: *${inv.cajas}*
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 🎁 *CAJAS POR RAREZA*
-
 ⚪ Comunes: *${cantidades.comun} / 10*
 🟢 Raras: *${cantidades.rara} / 10*
 🔵 Épicas: *${cantidades.epica} / 10*
@@ -67,24 +75,45 @@ ${inv.cajas}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🎖️ Objetos registrados: *${inv.objetos.length}*
+🏆 *COLECCIÓN DE OBJETOS*
+🎖️ Total registrado: *${inv.objetos.length}*
 
-📜 *Últimos objetos*
+📜 *TUS ÚLTIMOS 5 OBJETOS*
 ${lista}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🛡️ *Sistema de Inventario Titans Team*
-🤖 *TitansB  Miembro Virtual*`;
+🔎 Consulta tus existencias cuando quieras con *!inventario*.
 
-            await sock.sendMessage(from, { text: mensaje });
+🏆 *LIGA TITANS TEAM*`;
+
+            await enviarMensajeTitans(sock, from, { text: mensaje });
 
         } catch (error) {
             console.error("❌ Error inventario:", error);
 
-            await sock.sendMessage(from, {
-                text: "❌ No pude mostrar el inventario."
+            await enviarMensajeTitans(sock, from, {
+                text:
+`❌ *TITANS TEAM · INVENTARIO NO DISPONIBLE*
+
+No fue posible mostrar tu inventario en este momento.
+
+🔐 Tus datos no se modificaron.
+Inténtalo nuevamente más tarde o contacta a administración.
+
+🏆 *LIGA TITANS TEAM*`
             });
         }
     }
 };
+
+const PIE_TITANS = "🏆LIGA TITANS TEAM - TITANSB MIEMBRO VIRTUAL 🤖";
+
+async function enviarMensajeTitans(sock, from, contenido) {
+    if (contenido && typeof contenido.text === "string") {
+        contenido.text = contenido.text.includes(PIE_TITANS)
+            ? contenido.text
+            : `${contenido.text.trimEnd()}\n\n${PIE_TITANS}`;
+    }
+    return sock.sendMessage(from, contenido);
+}

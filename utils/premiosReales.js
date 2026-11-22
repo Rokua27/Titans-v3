@@ -185,9 +185,7 @@ Has conseguido una recompensa real en Titans Team.
 📩 Revisa tu mensaje privado y sigue las indicaciones para reclamar tu premio.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
-🤖 *TitansB · Miembro virtual*
-💎 *Sistema de Premios Titans Team*
-━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+🏆LIGA TITANS TEAM - TITANSB MIEMBRO VIRTUAL 🤖`;
 }
 
 module.exports = {

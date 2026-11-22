@@ -24,7 +24,7 @@ module.exports = {
 
     if (!(await esSuperAdmin(sender))) {
       return sock.sendMessage(from, {
-        text: "⛔ Solo un SuperAdmin autorizado puede reconciliar códigos de premios."
+        text: "⛔ *TITANS TEAM · ACCESO RESTRINGIDO*\n\n🔐 Solo un SuperAdmin autorizado puede reconciliar códigos de premios."
       });
     }
 
@@ -34,11 +34,13 @@ module.exports = {
     ) {
       return sock.sendMessage(from, {
         text:
-          "⚠️ Uso incorrecto.\n\n" +
-          "Utiliza:\n" +
-          "!reconciliarcodigopremio ID_PREMIO invalidar\n\n" +
-          "Esta operación solo invalida un desafío INCIERTO. " +
-          "No confirma envíos ni reenvía códigos."
+          "⚠️ *TITANS TEAM · COMANDO INCORRECTO*\n\n" +
+          "╔══ 🔐 RECONCILIACIÓN DE CÓDIGO ══╗\n" +
+          "📌 Formato correcto:\n" +
+          "!reconciliarcodigopremio ID_PREMIO invalidar\n" +
+          "╚══════════════════════════╝\n\n" +
+          "🔒 Solo invalida un desafío INCIERTO.\n" +
+          "🚫 No confirma envíos ni reenvía códigos."
       });
     }
 
@@ -77,16 +79,19 @@ module.exports = {
 
       return sock.sendMessage(from, {
         text:
-          "✅ *RECONCILIACIÓN DE CÓDIGO DE PREMIO*\n\n" +
-          `🆔 Premio: ${args[0]}\n` +
+          "📢 *TITANS TEAM · RECONCILIACIÓN COMPLETADA* 👑\n\n" +
+          "╔══ 🔐 CONTROL DE PREMIOS ══╗\n" +
+          `🆔 Referencia: ${args[0]}\n` +
           `🛡️ SuperAdmin: ${sender}\n` +
-          `🕒 Fecha: ${resultado.resueltoEn}\n\n` +
-          "🔒 Código anterior invalidado.\n" +
+          `🕒 Fecha: ${resultado.resueltoEn}\n` +
+          "🔒 Código anterior: INVALIDADO.\n" +
+          "╚══════════════════════════╝\n\n" +
           (resultado.legacy
             ? "🧾 Registro antiguo sin UUID resuelto mediante revisión manual.\n"
             : "📌 Desafío INCIERTO invalidado mediante revisión manual.\n") +
-          "📌 No se confirmó ningún envío ni se realizó un reenvío.\n" +
-          "ℹ️ La emisión de un nuevo código requerirá una operación independiente."
+          "🚫 No se confirmó ningún envío ni se realizó un reenvío.\n" +
+          "ℹ️ Emitir un nuevo código requerirá una operación independiente.\n\n" +
+          "🏆LIGA TITANS TEAM - TITANSB MIEMBRO VIRTUAL 🤖"
       });
     } catch (error) {
       console.error(
@@ -96,8 +101,12 @@ module.exports = {
 
       return sock.sendMessage(from, {
         text:
-          "❌ No se pudo reconciliar el código.\n" +
-          "Debe existir un desafío INCIERTO activo y coincidir con el registro del premio."
+          "⛔ *TITANS TEAM · RECONCILIACIÓN NO COMPLETADA*\n\n" +
+          "╔══ 🔐 REVISIÓN DE SEGURIDAD ══╗\n" +
+          "⚠️ No se pudo reconciliar el código.\n" +
+          "🔒 Debe existir un desafío INCIERTO activo y coincidir con el registro del premio.\n" +
+          "🚫 No se confirmó ningún envío ni se realizó un reenvío.\n" +
+          "╚══════════════════════════╝"
       });
     }
   }

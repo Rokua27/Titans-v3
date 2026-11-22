@@ -37,32 +37,33 @@ function construirMensajeFinal(raid) {
     top += `${medalla} *${p.nombre}* — ${p.dañoTotal}\n`;
   });
 
-  return `╔══════════════════════════════╗
-║     🏆 𝗥𝗔𝗜𝗗 𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗔𝗗𝗢 🏆     ║
+  return `📢 *TITANS TEAM · RAID GLOBAL*
+
+╔══════════════════════════════╗
+║       🏆 JEFE DERROTADO      ║
 ╚══════════════════════════════╝
 
-🐉 *¡EL TITÁN DEL VACÍO HA SIDO DERROTADO!*
+🐉 *¡EL TITÁN DEL VACÍO HA CAÍDO!*
 
-⚔️ La comunidad unió sus fuerzas y logró destruir al jefe legendario.
+⚔️ La comunidad unió sus fuerzas y consiguió derrotar al jefe.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-📊 *TOP DAÑO*
+🏆 *CLASIFICACIÓN · TOP DAÑO*
 
 ${top}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🎁 *RECOMPENSAS ENTREGADAS*
+🎁 *RECOMPENSAS CONFIRMADAS*
 
 💰 +500 monedas
 ⭐ +300 XP
 📦 +1 Caja Épica
 
-⚡ Todos los participantes recibieron automáticamente las recompensas.
+✅ La entrega de recompensas fue completada para los participantes.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🏆 𝗟𝗜𝗚𝗔 𝗧𝗜𝗧𝗔𝗡𝗦 𝗧𝗘𝗔𝗠
-🤖 𝗧𝗶𝘁𝗮𝗻𝘀𝗕𝗼𝘁 𝘃𝟯 • 𝗣𝗿𝗲𝗺𝗶𝘂𝗺 𝗘𝘀𝗽𝗼𝗿𝘁𝘀
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+
+🏆LIGA TITANS TEAM - TITANSB MIEMBRO VIRTUAL 🤖`;
 }
 
 async function finalizarRaidPendiente(sock, from, raid) {
@@ -117,7 +118,7 @@ module.exports = {
 
       if (raidsEnProceso.has(claveRaid)) {
         return await sock.sendMessage(from, {
-          text: "⏳ El Raid está procesando un ataque o sus recompensas. Espera un momento."
+          text: "📢 *TITANS TEAM · RAID GLOBAL*\n\n⏳ El Raid está procesando un ataque o la entrega de recompensas.\n\nEspera un momento antes de volver a intentarlo.\n\n🏆LIGA TITANS TEAM - TITANSB MIEMBRO VIRTUAL 🤖"
         });
       }
 
@@ -132,7 +133,7 @@ module.exports = {
 
       if (!raid.activo) {
         return await sock.sendMessage(from, {
-          text: "🐉 No hay un Raid Global activo. Usa *!raid* para iniciarlo."
+          text: "📢 *TITANS TEAM · RAID GLOBAL*\n\n╔══════════════════════════════╗\n║       🐉 RAID INACTIVO       ║\n╚══════════════════════════════╝\n\nNo hay ningún jefe activo en este momento.\n\n⚔️ Usa *!raid* para iniciar el combate.\n\n🏆LIGA TITANS TEAM - TITANSB MIEMBRO VIRTUAL 🤖"
         });
       }
 
@@ -144,7 +145,15 @@ module.exports = {
         const restante = Math.ceil((10000 - (ahora - ultimo)) / 1000);
 
         return await sock.sendMessage(from, {
-          text: `⏱️ Espera *${restante}s* antes de volver a atacar.`
+          text: `📢 *TITANS TEAM · RAID GLOBAL*
+
+⏳ *¡RECUPERA TUS FUERZAS!*
+
+Debes esperar *${restante} segundos* antes de lanzar otro ataque.
+
+⚔️ El combate continuará. ¡Prepárate para tu siguiente golpe!
+
+🏆LIGA TITANS TEAM - TITANSB MIEMBRO VIRTUAL 🤖`
         });
       }
 
@@ -200,27 +209,33 @@ module.exports = {
 
       await sock.sendMessage(from, {
         text:
-`╔══════════════════════════════╗
-║        ⚔️ 𝗔𝗧𝗔𝗤𝗨𝗘 ⚔️         ║
+`📢 *TITANS TEAM · RAID GLOBAL*
+
+╔══════════════════════════════╗
+║       ⚔️ RESULTADO DEL ATAQUE ║
 ╚══════════════════════════════╝
 
-👤 *${nombre}*
+👤 *GUERRERO:* ${nombre}
 
 ${tipo}
-💥 Daño: *${daño}*
+💥 *DAÑO CAUSADO:* ${daño}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🐉 *${raid.jefe}*
-❤️ *${raid.vidaActual}/${raid.vidaMax}*
-📊 *${porcentaje}% restante*
+🐉 *JEFE:* ${raid.jefe}
+❤️ *VIDA RESTANTE:* ${raid.vidaActual}/${raid.vidaMax}
+📊 *SALUD DEL JEFE:* ${porcentaje}%
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🏆 Tu daño total: *${raid.participantes[sender].dañoTotal}*
-⚔️ Golpes: *${raid.participantes[sender].golpes}*
+🏆 *TU CONTRIBUCIÓN*
+⚔️ Daño acumulado: ${raid.participantes[sender].dañoTotal}
+🥊 Ataques realizados: ${raid.participantes[sender].golpes}
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
+¡Sigue luchando por Titans Team!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🏆LIGA TITANS TEAM - TITANSB MIEMBRO VIRTUAL 🤖`
       });
 
       if (raidDerrotado(raid)) {

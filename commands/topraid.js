@@ -18,7 +18,7 @@ uso: "!topraid",
 
     if (!raid.activo) {
       return await sock.sendMessage(from, {
-        text: "🐉 No hay un Raid Global activo."
+        text: "📢 *TITANS TEAM · RAID GLOBAL*\n\n╔══════════════════════════════╗\n║       🐉 RAID INACTIVO       ║\n╚══════════════════════════════╝\n\nNo hay ningún jefe activo en este momento.\n\n⚔️ Usa *!raid* para iniciar el combate.\n\n🏆LIGA TITANS TEAM - TITANSB MIEMBRO VIRTUAL 🤖"
       });
     }
 
@@ -35,18 +35,25 @@ uso: "!topraid",
 
     await sock.sendMessage(from, {
       text:
-`╔══════════════════════════════╗
-║      📊 𝗧𝗢𝗣 𝗥𝗔𝗜𝗗 📊        ║
+`📢 *TITANS TEAM · RAID GLOBAL*
+
+╔══════════════════════════════╗
+║       🏆 CLASIFICACIÓN       ║
 ╚══════════════════════════════╝
 
-🐉 *${raid.jefe}*
-❤️ *${raid.vidaActual}/${raid.vidaMax}*
+🐉 *JEFE:* ${raid.jefe}
+❤️ *VIDA RESTANTE:* ${raid.vidaActual}/${raid.vidaMax}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-${lista || "Aún no hay participantes."}
+⚔️ *TOP 10 · MAYOR DAÑO*
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
+${lista || "Aún no hay participantes registrados."}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🥇 Cada posición se determina por el daño total acumulado.
+
+🏆LIGA TITANS TEAM - TITANSB MIEMBRO VIRTUAL 🤖`
     });
   }
 };

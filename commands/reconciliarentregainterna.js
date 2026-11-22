@@ -24,16 +24,19 @@ module.exports = {
 
     if (!(await esSuperAdmin(sender))) {
       return sock.sendMessage(from, {
-        text: "⛔ Solo un SuperAdmin autorizado puede reconciliar entregas internas."
+        text: "⛔ *TITANS TEAM · ACCESO RESTRINGIDO*\n\n🔐 Solo un SuperAdmin autorizado puede reconciliar entregas internas."
       });
     }
 
     if (!Array.isArray(args) || args.length !== 1) {
       return sock.sendMessage(from, {
         text:
-          "⚠️ Uso incorrecto.\n\n" +
-          "Utiliza:\n" +
-          "!reconciliarentregainterna ID_PREMIO"
+          "⚠️ *TITANS TEAM · COMANDO INCORRECTO*\n\n" +
+          "╔══ 🔐 RECONCILIACIÓN INTERNA ══╗\n" +
+          "📌 Formato correcto:\n" +
+          "!reconciliarentregainterna ID_PREMIO\n" +
+          "╚══════════════════════════════╝\n\n" +
+          "🔒 Debes indicar un único ID de premio."
       });
     }
 
@@ -45,14 +48,17 @@ module.exports = {
 
       return sock.sendMessage(from, {
         text:
-          "✅ *RECONCILIACIÓN DE ENTREGA INTERNA*\n\n" +
-          `🆔 Premio: ${args[0]}\n` +
-          `🛡️ Administrador: ${sender}\n\n` +
+          "📢 *TITANS TEAM · RECONCILIACIÓN INTERNA COMPLETADA* 👑\n\n" +
+          "╔══ 🔐 VERIFICACIÓN DE ENTREGA ══╗\n" +
+          `🆔 Referencia del premio: ${args[0]}\n` +
+          `🛡️ SuperAdmin: ${sender}\n` +
           (resultado.duplicada
-            ? "ℹ️ El ledger ya estaba en pendiente de confirmación."
-            : "✅ El ledger quedó en pendiente de confirmación.") +
-          "\n📌 Se verificó el ID real del mensaje enviado." +
-          "\n🔒 No se reenviaron datos del jugador."
+            ? "ℹ️ El ledger ya estaba pendiente de confirmación.\n"
+            : "✅ El ledger quedó pendiente de confirmación.\n") +
+          "📌 Se verificó el ID real del mensaje enviado.\n" +
+          "🔒 No se reenviaron datos del jugador.\n" +
+          "╚════════════════════════════════╝\n\n" +
+          "🏆LIGA TITANS TEAM - TITANSB MIEMBRO VIRTUAL 🤖"
       });
     } catch (error) {
       console.error(
@@ -62,8 +68,12 @@ module.exports = {
 
       return sock.sendMessage(from, {
         text:
-          "❌ No se pudo reconciliar la entrega interna.\n" +
-          "Se requiere una operación ENVIADO con ID real de WhatsApp, premio y grupo interno coincidentes."
+          "⛔ *TITANS TEAM · RECONCILIACIÓN NO COMPLETADA*\n\n" +
+          "╔══ 🔐 REVISIÓN DE SEGURIDAD ══╗\n" +
+          "⚠️ No se pudo reconciliar la entrega interna.\n" +
+          "🔒 Se requiere una operación ENVIADO con ID real de WhatsApp, premio y grupo interno coincidentes.\n" +
+          "🚫 No se reenviaron datos del jugador.\n" +
+          "╚══════════════════════════════╝"
       });
     }
   }

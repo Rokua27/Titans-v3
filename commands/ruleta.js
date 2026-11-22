@@ -2,6 +2,8 @@ const monitor = require("../utils/monitor");
 const { anuncioGlobal } = require("../utils/anuncios");
 const { jugarRuleta } = require("../utils/casinoEconomia");
 
+const PIE_TITANS = "🏆LIGA TITANS TEAM - TITANSB MIEMBRO VIRTUAL 🤖";
+
 module.exports = {
     nombre: "ruleta",
     alias: [],
@@ -31,20 +33,17 @@ module.exports = {
             if (!resultado.ok) {
                 if (resultado.motivo === "limite") {
                     return await sock.sendMessage(from, {
-                        text: `╔══════════════════════════════╗
-║     🚫 LÍMITE ALCANZADO      ║
-╚══════════════════════════════╝
+                        text: `📢 *TITANS TEAM · RULETA*
 
-🎰 Comando:
-Ruleta
+╔══ 🚫 LÍMITE ALCANZADO ══╗
 
-❌ Ya utilizaste este comando
-3 veces el día de hoy.
+🎡 Ya utilizaste tus 3 partidas de Ruleta disponibles para hoy.
 
 ⏰ Tu límite se reinicia a las 00:00, hora de Colombia.
 
-━━━━━━━━━━━━━━━━━━━━━━
-🤖 TitansBot v3`
+╚══════════════════════════╝
+
+${PIE_TITANS}`
                     });
                 }
 
@@ -52,32 +51,35 @@ Ruleta
                     const restante = Math.ceil(resultado.restante / 1000);
 
                     return await sock.sendMessage(from, {
-                        text: `╔══════════════════════════════╗
-║      ⏱️ 𝗖𝗢𝗢𝗟𝗗𝗢𝗪𝗡 ⏱️       ║
-╚══════════════════════════════╝
+                        text: `📢 *TITANS TEAM · RULETA*
 
-🎡 La ruleta aún se está recargando.
+╔══ ⏳ RULETA EN RECARGA ══╗
+
+🎡 La Ruleta Titans todavía se está recargando.
 
 ⌛ Espera *${restante} segundos* para volver a jugar.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🤖 𝗧𝗶𝘁𝗮𝗻𝘀𝗕𝗼𝘁 𝘃𝟯`
+╚══════════════════════════╝
+
+${PIE_TITANS}`
                     });
                 }
 
                 if (resultado.motivo === "saldo_insuficiente") {
                     return await sock.sendMessage(from, {
-                        text: `╔══════════════════════════════╗
-║     💸 𝗦𝗜𝗡 𝗙𝗢𝗡𝗗𝗢𝗦 💸     ║
-╚══════════════════════════════╝
+                        text: `📢 *TITANS TEAM · RULETA*
+
+╔══ 💸 SALDO INSUFICIENTE ══╗
 
 🎡 La Ruleta Titans requiere *100 monedas*.
 
 💰 Tus monedas: *${resultado.saldo}*
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-⚔️ Participa en la comunidad para ganar más monedas.
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
+Participa en la comunidad y consigue más monedas para volver a intentarlo.
+
+╚══════════════════════════╝
+
+${PIE_TITANS}`
                     });
                 }
             }
@@ -88,27 +90,40 @@ Ruleta
                 : juego.jackpot;
 
             await sock.sendMessage(from, {
-                text: `╔══════════════════════════════╗
-║      🎡 𝗥𝗨𝗟𝗘𝗧𝗔 𝗧𝗜𝗧𝗔𝗡𝗦 🎡      ║
-╚══════════════════════════════╝
+                text: `📢 *TITANS TEAM · RULETA*
 
-🎰 *Girando la ruleta...*
+🎡 *¡BIENVENIDO A LA RULETA TITANS!*
 
-🎯 La ruleta tiene siete posibles resultados:
-🏆 Jackpot legendario
-💰 1.000 monedas
-🎁 400 monedas
-🪙 200 monedas
-⭐ 100 XP
-☠️ Pérdida adicional de 50 monedas
-😶 Sin premio
+Pon a prueba tu suerte. Cada giro puede cambiar tu fortuna. 🍀
+
+╔══ 🎡 RULETA TITANS 🎡 ══╗
+
+║ 🪙 *COSTO POR GIRO:* 100 monedas
+
+║ 🏆 *JACKPOT:* ${jackpotMostrado} monedas
+
+║ 🎰 *RESULTADOS DISPONIBLES:*
+   👑 Jackpot legendario
+   🪙 1.000 monedas
+   🪙 400 monedas
+   🪙 200 monedas
+   ✨ 100 XP
+   📉 Pérdida adicional de 50 monedas
+   🎲 Sin premio
+
+╚══════════════════════════╝
+
+💎 *¡TAMBIÉN PUEDES GANAR GRANDES RECOMPENSAS!*
+
+En esta modalidad tienes la oportunidad de conseguir:
+
+💎 50 diamantes.
+💎 86 diamantes.
+🎟️ Pase semanal de diamantes.
+👑 Pase semanal Elite.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-💵 Costo por partida: *100 monedas*
-💰 Jackpot: *${jackpotMostrado} monedas*
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-⚔️ La suerte de los titanes decidirá tu destino...`
+${PIE_TITANS}`
             });
 
             await new Promise(resolve => setTimeout(resolve, 2000));
@@ -124,45 +139,39 @@ Ruleta
                 }
             }
 
+            const premioRealValido =
+                juego.premioReal &&
+                juego.premioReal.premio &&
+                typeof juego.premioReal.premio.nombre === "string" &&
+                juego.premioReal.premio.nombre.trim().length > 0;
+
+            const bloquePremioReal = premioRealValido
+                ? `\n\n💎 *¡PREMIO REAL ADJUDICADO!*\n🎁 ${juego.premioReal.premio.nombre}\n📋 Estado: pendiente de datos para continuar con la entrega.`
+                : "";
+
             const mensajeFinal =
-`╔══════════════════════════════╗
-║        🎉 𝗥𝗘𝗦𝗨𝗟𝗧𝗔𝗗𝗢 🎉        ║
-╚══════════════════════════════╝
+`📢 *TITANS TEAM · RULETA*
 
-👤 *${juego.nombre}*
+╔══ 🎉 RESULTADO DE RULETA ══╗
 
-🏅 *${juego.titulo}*
+👤 *JUGADOR:* ${juego.nombre}
+
+🏅 *RESULTADO:* ${juego.titulo}
 ${juego.descripcion}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-💰 Monedas actuales: *${juego.coins}*
-⭐ XP actual: *${juego.xp}*
+💰 *MONEDAS ACTUALES:* ${juego.coins}
+✨ *EXPERIENCIA ACTUAL:* ${juego.xp}
 ${juego.monedasNivel > 0
-    ? `🏅 +${juego.monedasNivel} monedas por subir ${juego.nivelesGanados} nivel(es)`
+    ? `🏅 *BONIFICACIÓN DE NIVEL:* +${juego.monedasNivel} monedas por subir ${juego.nivelesGanados} nivel(es)`
     : ""}
-🏆 Jackpot: *${juego.jackpot}*
+🏆 *JACKPOT:* ${juego.jackpot} monedas${bloquePremioReal}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💵 Costo por giro: 100 monedas.
 
-🎰 *PROBABILIDADES DE LA RULETA*
-
-🏆 Jackpot → 1%
-💰 1.000 monedas → 9%
-🎁 400 monedas → 20%
-🪙 200 monedas → 25%
-⭐ 100 XP → 20%
-☠️ Pierdes 50 monedas adicionales → 15%
-😶 Sin premio → 10%
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-💵 Costo por partida: *100 monedas*
-📊 Probabilidad total: *100%*
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🏆 𝗟𝗜𝗚𝗔 𝗧𝗜𝗧𝗔𝗡𝗦 𝗧𝗘𝗔𝗠
-🤖 𝗧𝗶𝘁𝗮𝗻𝘀𝗕𝗼𝘁 𝘃𝟯 • 𝗣𝗿𝗲𝗺𝗶𝘂𝗺 𝗘𝘀𝗽𝗼𝗿𝘁𝘀
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+${PIE_TITANS}`;
 
             await sock.sendMessage(from, { text: mensajeFinal });
 
@@ -179,7 +188,15 @@ ${juego.monedasNivel > 0
             // No se informa un fallo de apuesta si la transacción ya fue confirmada.
             if (!resultado || !resultado.ok) {
                 await sock.sendMessage(from, {
-                    text: "❌ Ocurrió un error al procesar la ruleta."
+                    text: `📢 *TITANS TEAM · RULETA*
+
+╔══ ❌ ERROR DE SISTEMA ══╗
+
+No fue posible procesar la Ruleta en este momento.
+
+╚══════════════════════════╝
+
+${PIE_TITANS}`
                 }).catch(() => {});
             }
         }

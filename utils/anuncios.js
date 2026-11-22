@@ -19,7 +19,9 @@ async function anuncioGlobal(sock, from, tipo, datos) {
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🎰 La Ruleta Titans vuelve a comenzar desde el valor base.
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🏆LIGA TITANS TEAM - TITANSB MIEMBRO VIRTUAL 🤖`;
       break;
 
     case "logro":
@@ -35,7 +37,9 @@ async function anuncioGlobal(sock, from, tipo, datos) {
 
 ⚡ La comunidad ha presenciado un ascenso legendario.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🏆LIGA TITANS TEAM - TITANSB MIEMBRO VIRTUAL 🤖`;
       break;
 
     case "mitica":
@@ -53,7 +57,9 @@ async function anuncioGlobal(sock, from, tipo, datos) {
 
 ¡Toda la comunidad ha presenciado un DROP MÍTICO!
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🏆LIGA TITANS TEAM - TITANSB MIEMBRO VIRTUAL 🤖`;
       break;
   }
 

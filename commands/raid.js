@@ -23,23 +23,39 @@ uso: "!raid",
       if (raid.estadoRecompensas === "pendiente") {
         return await sock.sendMessage(from, {
           text:
-`⚠️ Hay recompensas de un Raid anterior pendientes de confirmar.
+`📢 *TITANS TEAM · RAID GLOBAL*
 
-🛡️ No se iniciará otro jefe para proteger las recompensas de los participantes.
+╔══════════════════════════════╗
+║     ⚠️ RECOMPENSAS PENDIENTES ║
+╚══════════════════════════════╝
 
-Usa *!golpear* para reintentar la entrega pendiente.`
+🛡️ Hay recompensas de un Raid anterior pendientes de confirmar.
+
+No se iniciará otro jefe hasta resolver la entrega y proteger los premios de los participantes.
+
+⚔️ Usa *!golpear* para reintentar la entrega pendiente.
+
+🏆LIGA TITANS TEAM - TITANSB MIEMBRO VIRTUAL 🤖`
         });
       }
 
       if (raid.activo) {
         return await sock.sendMessage(from, {
           text:
-`⚠️ Ya hay un Raid Global activo.
+`📢 *TITANS TEAM · RAID GLOBAL*
 
-🐉 *${raid.jefe}*
-❤️ Vida: *${raid.vidaActual}/${raid.vidaMax}*
+╔══════════════════════════════╗
+║       🐉 RAID EN CURSO       ║
+╚══════════════════════════════╝
 
-Usa *!golpear* para atacar.`
+⚠️ Ya existe un jefe activo. ¡La batalla continúa!
+
+🐲 *JEFE:* ${raid.jefe}
+❤️ *VIDA:* ${raid.vidaActual}/${raid.vidaMax}
+
+⚔️ Usa *!golpear* para unirte al combate y contribuir al daño del equipo.
+
+🏆LIGA TITANS TEAM - TITANSB MIEMBRO VIRTUAL 🤖`
         });
       }
 
@@ -58,41 +74,44 @@ Usa *!golpear* para atacar.`
       const nombre = usuarios[sender]?.nombre || "Titán";
 
       const mensaje =
-`╔══════════════════════════════╗
-║      🐉 𝗥𝗔𝗜𝗗 𝗚𝗟𝗢𝗕𝗔𝗟 🐉       ║
+`📢 *TITANS TEAM · RAID GLOBAL*
+
+╔══════════════════════════════╗
+║    🐉 ¡UN TITÁN HA APARECIDO! ║
 ╚══════════════════════════════╝
 
-🚨 *¡EL TITÁN DEL VACÍO HA APARECIDO!*
+🚨 *¡EL TITÁN DEL VACÍO HA DESPERTADO!*
 
-👤 Invocado por: *${nombre}*
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-🐲 *Jefe:* Titán del Vacío
-❤️ *Vida:* 25,000 / 25,000
-⚔️ *Participantes:* 0
+👤 *Invocado por:* ${nombre}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-💥 Usa *!golpear* para atacar.
-
-🎯 Daño posible:
-• Normal → 50-500
-• Crítico → x3
-• Fallo → 0
+🐲 *JEFE:* Titán del Vacío
+❤️ *VIDA:* 25,000 / 25,000
+⚔️ *PARTICIPANTES:* 0
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🎁 *Recompensas al derrotarlo*
+💥 *¡LA BATALLA COMIENZA!*
+
+Usa *!golpear* para atacar y ayudar a la comunidad a derrotarlo.
+
+🎯 *SISTEMA DE DAÑO*
+⚔️ Normal: 50–500
+💥 Crítico: daño ×3
+☠️ Fallo: 0 de daño
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎁 *RECOMPENSAS POR DERROTA*
 
 💰 500 monedas
 ⭐ 300 XP
 📦 1 Caja Épica
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🏆 𝗟𝗜𝗚𝗔 𝗧𝗜𝗧𝗔𝗡𝗦 𝗧𝗘𝗔𝗠
-🤖 𝗧𝗶𝘁𝗮𝗻𝘀𝗕𝗼𝘁 𝘃𝟯 • 𝗣𝗿𝗲𝗺𝗶𝘂𝗺 𝗘𝘀𝗽𝗼𝗿𝘁𝘀
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+
+🏆LIGA TITANS TEAM - TITANSB MIEMBRO VIRTUAL 🤖`;
 
       await sock.sendMessage(from, { text: mensaje });
 

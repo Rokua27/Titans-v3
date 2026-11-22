@@ -44,23 +44,38 @@ module.exports = {
             const rareza = RAREZAS[entrada];
 
             if (!rareza) {
-                return await sock.sendMessage(from, {
+                return await enviarMensajeTitans(sock, from, {
                     text:
-`📢 *TITANS TEAM · TIENDA DE CAJAS*
+`📢 *TITANS TEAM · MERCADO DE CAJAS*
 
-❌ Rareza no válida.
+╔══════════════════════════════╗
+║       📦 CATÁLOGO TITANS     ║
+╚══════════════════════════════╝
 
-📦 Disponibles:
-⚪ Común: 1.500 monedas
-🟢 Rara: 3.500 monedas
-🔵 Épica: 7.500 monedas
-🟣 Legendaria: 15.000 monedas
-🟡 Especial: 30.000 monedas
+❌ La rareza indicada no es válida.
 
-Usa: *!caja rareza*
+Elige una de las siguientes opciones:
 
-🛡️ *Sistema de Economía Titans Team*
-🤖 *TitansB  Miembro Virtual*`
+⚪ *COMÚN*
+   💰 1.500 monedas
+
+🟢 *RARA*
+   💰 3.500 monedas
+
+🔵 *ÉPICA*
+   💰 7.500 monedas
+
+🟣 *LEGENDARIA*
+   💰 15.000 monedas
+
+🟡 *ESPECIAL*
+   💰 30.000 monedas
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🛒 Comando: *!caja rareza*
+🎒 Capacidad: 10 cajas por rareza
+
+🏆 *LIGA TITANS TEAM*`
                 });
             }
 
@@ -76,64 +91,76 @@ Usa: *!caja rareza*
             }
 
             if (!compra.ok && compra.motivo === "limite") {
-                return await sock.sendMessage(from, {
+                return await enviarMensajeTitans(sock, from, {
                     text:
-`📢 *TITANS TEAM · TIENDA DE CAJAS*
+`📢 *TITANS TEAM · MERCADO DE CAJAS*
 
 ╔══════════════════════════════╗
-║     🚫 LÍMITE ALCANZADO      ║
+║       🚫 CUPO AGOTADO        ║
 ╚══════════════════════════════╝
 
-Ya realizaste las 3 compras permitidas hoy.
-El límite es compartido entre todas las rarezas.
+Ya utilizaste tus 3 compras permitidas para hoy.
 
-📅 Podrás comprar nuevamente mañana.
+📦 El límite es compartido entre todas las rarezas.
 
-🛡️ *Sistema de Economía Titans Team*
-🤖 *TitansB  Miembro Virtual*`
+🕛 Podrás volver a comprar después del reinicio diario, a las 00:00 de Colombia.
+
+🏆 *LIGA TITANS TEAM*`
                 });
             }
 
             if (!compra.ok && compra.motivo === "almacenamiento_lleno") {
-                return await sock.sendMessage(from, {
+                return await enviarMensajeTitans(sock, from, {
                     text:
 `📢 *TITANS TEAM · ALMACENAMIENTO*
 
-📦 Tu almacenamiento de cajas ${NOMBRES[rareza]} está lleno.
+╔══════════════════════════════╗
+║      🎒 ESPACIO COMPLETO     ║
+╚══════════════════════════════╝
 
-Límite: 10 cajas por rareza.
-No se descontaron monedas.
+📦 Rareza: *${NOMBRES[rareza]}*
+🔒 Capacidad máxima: *10 cajas*
 
-🛡️ *Sistema de Economía Titans Team*
-🤖 *TitansB  Miembro Virtual*`
+No puedes guardar más cajas de esta rareza por ahora.
+
+💰 No se descontaron monedas.
+🏆 *LIGA TITANS TEAM*`
                 });
             }
 
             if (!compra.ok && compra.motivo === "saldo_insuficiente") {
-                return await sock.sendMessage(from, {
+                return await enviarMensajeTitans(sock, from, {
                     text:
-`📢 *TITANS TEAM · TIENDA DE CAJAS*
+`📢 *TITANS TEAM · MERCADO DE CAJAS*
 
 ╔══════════════════════════════╗
-║       💰 SALDO INSUFICIENTE  ║
+║      💰 SALDO INSUFICIENTE   ║
 ╚══════════════════════════════╝
 
-📦 Caja: *${NOMBRES[rareza]}*
+📦 Caja seleccionada: *${NOMBRES[rareza]}*
 💵 Precio: *${PRECIOS_CAJAS[rareza].toLocaleString("es-CO")} monedas*
-💰 Saldo disponible: *${compra.saldo.toLocaleString("es-CO")} monedas*
+👛 Tu saldo: *${compra.saldo.toLocaleString("es-CO")} monedas*
 
-No se realizó ningún descuento.
+Te faltan monedas para completar esta compra.
 
-🛡️ *Sistema de Economía Titans Team*
-🤖 *TitansB  Miembro Virtual*`
+🔐 No se realizó ningún descuento.
+🏆 *LIGA TITANS TEAM*`
                 });
             }
 
             if (!compra.ok && compra.motivo === "inventario_invalido") {
-                return await sock.sendMessage(from, {
+                return await enviarMensajeTitans(sock, from, {
                     text:
-                        "⚠️ No pude validar tu inventario de forma segura. " +
-                        "No se descontaron monedas. Contacta a administración."
+`⚠️ *TITANS TEAM · VALIDACIÓN DE SEGURIDAD*
+
+No fue posible validar tu inventario de forma segura.
+
+🔐 La compra fue detenida.
+💰 No se descontaron monedas.
+
+Si el problema continúa, contacta a administración.
+
+🏆 *LIGA TITANS TEAM*`
                 });
             }
 
@@ -144,29 +171,33 @@ No se realizó ningún descuento.
             const resultado = compra.resultado;
 
             const mensaje =
-`📢 *TITANS TEAM · TIENDA DE CAJAS*
+`📢 *TITANS TEAM · MERCADO DE CAJAS*
 
 ╔══════════════════════════════╗
-║       📦 COMPRA CONFIRMADA   ║
+║       ✅ COMPRA EXITOSA      ║
 ╚══════════════════════════════╝
 
-👤 *${resultado.nombre}*
+👤 Titán: *${resultado.nombre}*
 
-🎁 Caja adquirida: *${NOMBRES[rareza]}*
-💰 Costo: *${resultado.costo.toLocaleString("es-CO")} monedas*
-💳 Saldo restante: *${resultado.saldoFinal.toLocaleString("es-CO")} monedas*
-
-📦 Cajas ${NOMBRES[rareza]} disponibles:
-*${resultado.cajasPorRareza[rareza]} / 10*
+🎁 *CAJA ADQUIRIDA*
+${NOMBRES[rareza]}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-📖 Usa *!abrir ${rareza}* para descubrir tu recompensa.
+💰 Costo pagado: *${resultado.costo.toLocaleString("es-CO")} monedas*
+👛 Saldo disponible: *${resultado.saldoFinal.toLocaleString("es-CO")} monedas*
 
-🛡️ *Sistema de Economía Titans Team*
-🤖 *TitansB  Miembro Virtual*`;
+🎒 *TU ALMACENAMIENTO*
+📦 Cajas ${NOMBRES[rareza]}: *${resultado.cajasPorRareza[rareza]} / 10*
 
-            await sock.sendMessage(from, { text: mensaje });
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔓 ¿Listo para descubrir tu recompensa?
+📖 Abre tu caja con: *!abrir ${rareza}*
+
+🏆 *LIGA TITANS TEAM*`;
+
+            await enviarMensajeTitans(sock, from, { text: mensaje });
 
         } catch (error) {
             console.error("❌ Error caja:", error);
@@ -178,9 +209,30 @@ No se realizó ningún descuento.
                 descripcion: error.message
             });
 
-            await sock.sendMessage(from, {
-                text: "❌ No pude comprar la caja. No repitas el comando hasta verificar el resultado."
+            await enviarMensajeTitans(sock, from, {
+                text:
+`❌ *TITANS TEAM · COMPRA NO VERIFICADA*
+
+No pude confirmar el resultado de la operación.
+
+⚠️ Por seguridad, no repitas el comando todavía.
+🔎 Verifica tu saldo y almacenamiento antes de intentarlo nuevamente.
+
+Si necesitas ayuda, contacta a administración.
+
+🏆 *LIGA TITANS TEAM*`
             });
         }
     }
 };
+
+const PIE_TITANS = "🏆LIGA TITANS TEAM - TITANSB MIEMBRO VIRTUAL 🤖";
+
+async function enviarMensajeTitans(sock, from, contenido) {
+    if (contenido && typeof contenido.text === "string") {
+        contenido.text = contenido.text.includes(PIE_TITANS)
+            ? contenido.text
+            : `${contenido.text.trimEnd()}\n\n${PIE_TITANS}`;
+    }
+    return sock.sendMessage(from, contenido);
+}

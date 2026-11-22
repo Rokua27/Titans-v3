@@ -26,15 +26,15 @@ module.exports = {
     // Protección obligatoria: solo SuperAdmins de la lista secreta.
     if (!(await esSuperAdmin(sender))) {
       return sock.sendMessage(from, {
-        text: "⛔ Solo un SuperAdmin autorizado puede confirmar entregas."
+        text: "⛔ *TITANS TEAM · ACCESO RESTRINGIDO*\n\n🔐 Solo un SuperAdmin autorizado puede confirmar entregas."
       });
     }
 
     if (args.length !== 1) {
       return sock.sendMessage(from, {
         text:
-          "⚠️ Uso incorrecto.\n\n" +
-          "Utiliza:\n" +
+          "⚠️ *TITANS TEAM · COMANDO INCORRECTO*\n\n" +
+          "📌 Formato correcto:\n" +
           "!confirmarentrega ID_PREMIO"
       });
     }
@@ -47,9 +47,9 @@ module.exports = {
       if (resultado.duplicada) {
         return sock.sendMessage(from, {
           text:
-            "ℹ️ Esta confirmación ya estaba registrada.\n" +
-            `🆔 Premio: ${id}\n` +
-            "No se ha creado una segunda entrega."
+            "📢 *TITANS TEAM · ENTREGA YA REGISTRADA*\n\n" +
+            `🆔 Referencia: ${id}\n` +
+            "🔒 No se generó una segunda entrega."
         });
       }
 
@@ -68,14 +68,16 @@ module.exports = {
 
       return sock.sendMessage(from, {
         text:
-          "╔══ 👑 TITANS TEAM · ENTREGA CONFIRMADA 👑 ══╗\n\n" +
-          `🆔 Premio: ${premio.id}\n` +
-          `🏆 Ganador: ${premio.ganadorNombre}\n` +
-          `🎁 Recompensa: ${premio.premio.nombre}\n` +
-          `🛡️ Confirmado por: ${sender}\n\n` +
-          "✅ Estado: ENTREGADO\n" +
-          "📌 La confirmación quedó registrada.\n" +
-          "📨 Las notificaciones privada y pública quedaron en la cola persistente para su procesamiento."
+          "📢 *TITANS TEAM · ENTREGA CONFIRMADA* 👑\n\n" +
+          `🆔 *Referencia:* ${premio.id}\n` +
+          `🏆 *Ganador:* ${premio.ganadorNombre}\n` +
+          `🎁 *Recompensa:* ${premio.premio.nombre}\n` +
+          `🛡️ *Autorizó:* ${sender}\n` +
+          "╚══════════════════════════╝\n\n" +
+          "✅ *Estado:* ENTREGADO\n" +
+          "🔒 Confirmación guardada correctamente.\n" +
+          "📨 Notificaciones privada y pública en cola persistente.\n\n" +
+          "🏆LIGA TITANS TEAM - TITANSB MIEMBRO VIRTUAL 🤖"
       });
     } catch (error) {
       console.error(
@@ -85,8 +87,9 @@ module.exports = {
 
       return sock.sendMessage(from, {
         text:
-          "❌ No se pudo confirmar la entrega.\n" +
-          "Verifica el ID y que el premio esté pendiente de confirmación."
+          "❌ *TITANS TEAM · NO SE PUDO CONFIRMAR*\n\n" +
+          "🔎 Verifica la referencia y que el premio esté pendiente de confirmación.\n" +
+          "🔒 No se debe asumir que la entrega quedó confirmada."
       });
     }
   }

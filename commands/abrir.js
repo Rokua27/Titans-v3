@@ -45,23 +45,26 @@ module.exports = {
             const rareza = generica ? null : RAREZAS[entrada];
 
             if (!generica && !rareza) {
-                return await sock.sendMessage(from, {
+                return await enviarMensajeTitans(sock, from, {
                     text:
-`📢 *TITANS TEAM · APERTURA DE CAJAS*
+`📢 *TITANS TEAM · CENTRO DE APERTURA*
 
-❌ Rareza no válida.
+╔══════════════════════════════╗
+║       ⚠️ OPCIÓN NO VÁLIDA    ║
+╚══════════════════════════════╝
 
-Usa:
-• !abrir comun
-• !abrir rara
-• !abrir epica
-• !abrir legendaria
-• !abrir especial
+La rareza indicada no existe.
 
-El comando *!abrir* sin argumentos conserva las cajas genéricas antiguas.
+🎁 *TIPOS DE CAJAS DISPONIBLES*
+⚪ Común: !abrir comun
+🟢 Rara: !abrir rara
+🔵 Épica: !abrir epica
+🟣 Legendaria: !abrir legendaria
+🟡 Especial: !abrir especial
 
-🛡️ *Sistema de Economía Titans Team*
-🤖 *TitansB  Miembro Virtual*`
+📦 También puedes usar *!abrir* sin argumentos para las cajas genéricas antiguas.
+
+🏆 *LIGA TITANS TEAM*`
                 });
             }
 
@@ -80,41 +83,58 @@ El comando *!abrir* sin argumentos conserva las cajas genéricas antiguas.
             }
 
             if (!apertura.ok && apertura.motivo === "limite") {
-                return await sock.sendMessage(from, {
+                return await enviarMensajeTitans(sock, from, {
                     text:
-`📢 *TITANS TEAM · APERTURA DE CAJAS*
+`📢 *TITANS TEAM · CONTROL DE APERTURAS*
 
 ╔══════════════════════════════╗
-║     🚫 LÍMITE ALCANZADO      ║
+║       🚫 CUPO AGOTADO        ║
 ╚══════════════════════════════╝
 
-Ya abriste las 3 cajas permitidas hoy.
-El límite es compartido entre todas las rarezas.
+Ya utilizaste tus 3 aperturas permitidas por hoy.
 
-📅 Vuelve mañana para seguir obteniendo recompensas.
+📦 El límite es compartido entre todas las rarezas.
 
-🛡️ *Sistema de Economía Titans Team*
-🤖 *TitansB  Miembro Virtual*`
+🕛 Podrás abrir más cajas después del reinicio diario, a las 00:00 de Colombia.
+
+🏆 *LIGA TITANS TEAM*`
                 });
             }
 
             if (!apertura.ok && apertura.motivo === "inventario_invalido") {
-                return await sock.sendMessage(from, {
+                return await enviarMensajeTitans(sock, from, {
                     text:
-                        "⚠️ No pude validar tu inventario de forma segura. " +
-                        "No se consumió ninguna caja. Contacta a administración."
+`⚠️ *TITANS TEAM · VALIDACIÓN DE SEGURIDAD*
+
+No fue posible validar tu inventario de forma segura.
+
+🔐 La apertura fue detenida.
+📦 No se consumió ninguna caja.
+
+Si el problema continúa, contacta a administración.
+
+🏆 *LIGA TITANS TEAM*`
                 });
             }
 
             if (!apertura.ok && apertura.motivo === "sin_cajas") {
                 const nombre = generica ? "genéricas" : NOMBRES[rareza];
 
-                return await sock.sendMessage(from, {
+                return await enviarMensajeTitans(sock, from, {
                     text:
-                        `📦 No tienes cajas ${nombre} disponibles. ` +
-                        (generica
-                            ? "Usa !inventario para consultar tus cajas."
-                            : `Usa !caja ${rareza} para comprar una.`)
+                        `📢 *TITANS TEAM · ALMACENAMIENTO*
+
+╔══════════════════════════════╗
+║       📦 SIN CAJAS           ║
+╚══════════════════════════════╝
+
+No tienes cajas *${nombre}* disponibles.
+
+${generica
+    ? "🎒 Consulta tus existencias con: *!inventario*"
+    : `🛒 Puedes adquirir una con: *!caja ${rareza}*`}
+
+🏆 *LIGA TITANS TEAM*`
                 });
             }
 
@@ -123,6 +143,19 @@ El límite es compartido entre todas las rarezas.
             }
 
             const resultado = apertura.resultado;
+
+            const premioRealValido =
+                resultado.premioReal &&
+                resultado.premioReal.premio &&
+                typeof resultado.premioReal.premio.nombre === "string" &&
+                resultado.premioReal.premio.nombre.trim().length > 0;
+
+            const textoPremioReal = premioRealValido
+                ? `🎁 𝗣𝗥𝗘𝗠𝗜𝗢 𝗥𝗘𝗔𝗟 𝗢𝗕𝗧𝗘𝗡𝗜𝗗𝗢
+
+🏆 Premio: ${resultado.premioReal.premio.nombre}
+📩 La entrega continuará por privado. Estado: pendiente de datos para continuar con la entrega.`
+                : "";
 
             if (resultado.mitica) {
                 await anuncioGlobal(sock, from, "mitica", {
@@ -140,35 +173,37 @@ El límite es compartido entre todas las rarezas.
                 : NOMBRES[rareza];
 
             const mensaje =
-`📢 *TITANS TEAM · APERTURA DE CAJAS*
+`📢 *TITANS TEAM · RECOMPENSA DESBLOQUEADA*
 
 ╔══════════════════════════════╗
-║       🎁 CAJA ABIERTA        ║
+║       🎉 CAJA ABIERTA        ║
 ╚══════════════════════════════╝
 
-👤 *${resultado.nombre}*
+👤 Titán: *${resultado.nombre}*
 
 📦 Caja utilizada: *${nombreCaja}*
-🏆 Rareza del objeto: *${resultado.rareza}*
-🎖️ Objeto obtenido: *${resultado.objeto}*
+🏆 Rareza obtenida: *${resultado.rareza}*
+🎁 Recompensa: *${resultado.objeto}*
+${textoPremioReal ? `\n${textoPremioReal}` : ""}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-⭐ XP: *+${resultado.xp}*
+✨ *RECOMPENSAS*
+⭐ Experiencia: *+${resultado.xp} XP*
 💰 Monedas: *+${resultado.coins}*
 ${resultado.nivelesGanados > 0
-    ? `🎉 Nivel alcanzado: *${resultado.nivel}*\n🪙 Bonificación por nivel: *+${resultado.monedasNivel} monedas*`
+    ? `🎊 ¡Subiste de nivel! Ahora eres nivel *${resultado.nivel}*\n🪙 Bonificación: *+${resultado.monedasNivel} monedas*`
     : ""}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+🎒 *ESTADO DE TU INVENTARIO*
 📦 Cajas ${nombreCaja} restantes: *${cajasRestantes}*
-🎒 Objetos en inventario: *${resultado.objetos}*
+🧰 Objetos almacenados: *${resultado.objetos}*
 
-🛡️ *Sistema de Economía Titans Team*
-🤖 *TitansB  Miembro Virtual*`;
+🏆 *LIGA TITANS TEAM*`;
 
-            await sock.sendMessage(from, { text: mensaje });
+            await enviarMensajeTitans(sock, from, { text: mensaje });
 
             console.log("✅ Caja abierta correctamente");
 
@@ -182,9 +217,30 @@ ${resultado.nivelesGanados > 0
                 descripcion: error.message
             });
 
-            await sock.sendMessage(from, {
-                text: "❌ Ocurrió un error al abrir la caja. Verifica el inventario antes de repetir el comando."
+            await enviarMensajeTitans(sock, from, {
+                text:
+`❌ *TITANS TEAM · APERTURA NO CONFIRMADA*
+
+No fue posible confirmar el resultado de la apertura.
+
+⚠️ No repitas el comando todavía.
+🔎 Verifica tu inventario antes de intentarlo nuevamente.
+
+Si necesitas ayuda, contacta a administración.
+
+🏆 *LIGA TITANS TEAM*`
             });
         }
     }
 };
+
+const PIE_TITANS = "🏆LIGA TITANS TEAM - TITANSB MIEMBRO VIRTUAL 🤖";
+
+async function enviarMensajeTitans(sock, from, contenido) {
+    if (contenido && typeof contenido.text === "string") {
+        contenido.text = contenido.text.includes(PIE_TITANS)
+            ? contenido.text
+            : `${contenido.text.trimEnd()}\n\n${PIE_TITANS}`;
+    }
+    return sock.sendMessage(from, contenido);
+}
