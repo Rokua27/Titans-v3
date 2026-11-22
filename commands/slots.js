@@ -143,30 +143,39 @@ La máquina se quedó con tu apuesta.`;
 
             await enviarMensajeTitans(sock, from, {
                 text:
-`╔══════════════════════════════╗
-║       🎰 𝗧𝗜𝗧𝗔𝗡𝗦 𝗦𝗟𝗢𝗧𝗦       ║
-╚══════════════════════════════╝
+`📢 *TITANS TEAM · TRAGAMONEDAS 🎰*
 
-🎰 𝗥𝗘𝗦𝗨𝗟𝗧𝗔𝗗𝗢
+╔════════════════════════════════╗
+║       🎰 RESULTADO DE PARTIDA  ║
+╚════════════════════════════════╝
+
+🎰 *TUS SÍMBOLOS*
         ${resultado.simbolos[0]}  │  ${resultado.simbolos[1]}  │  ${resultado.simbolos[2]}
 
-💰 Apuesta: ${resultado.apuesta} monedas
+💰 Apuesta: *${resultado.apuesta} monedas*
 
 ${resultadoTexto}
 
 ${textoPremioReal}
 
-📊 Cambio: ${cambio >= 0 ? "+" : ""}${cambio} monedas
-💰 Saldo: ${resultado.coins} monedas
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📊 Cambio: *${cambio >= 0 ? "+" : ""}${cambio} monedas*
+👛 Saldo disponible: *${resultado.coins} monedas*
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🎁 !daily  •  Recompensa diaria
-🎡 !ruleta •  Ruleta Titans
-🪙 !coinflip • Cara o cruz
+
+🎁 *¡PREMIOS SORPRENDENTES TE ESPERAN!*
+💎 50 o 86 diamantes
+🎟️ Pase semanal de diamantes
+👑 Pase semanal Elite
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🏆 𝗟𝗜𝗚𝗔 𝗧𝗜𝗧𝗔𝗡𝗦 𝗧𝗘𝗔𝗠
-🤖 TitansB • Sistema Automático
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
+
+🎮 *SIGUE JUGANDO*
+🎁 !daily  · Recompensa diaria
+🎡 !ruleta · Ruleta Titans
+🪙 !coinflip · Cara o cruz`
             });
 
         } catch (error) {

@@ -178,9 +178,9 @@ ${generica
             const mensaje =
 `📢 *TITANS TEAM · RECOMPENSA DESBLOQUEADA*
 
-╔══════════════════════════════╗
-║       🎉 CAJA ABIERTA        ║
-╚══════════════════════════════╝
+╔════════════════════════════════╗
+║          🎉 ¡CAJA ABIERTA!     ║
+╚════════════════════════════════╝
 
 👤 Titán: *${resultado.nombre}*
 
@@ -191,7 +191,7 @@ ${textoPremioReal ? `\n${textoPremioReal}` : ""}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-✨ *RECOMPENSAS*
+✨ *TUS RECOMPENSAS*
 ⭐ Experiencia: *+${resultado.xp} XP*
 💰 Monedas: *+${resultado.coins}*
 ${resultado.nivelesGanados > 0
@@ -204,7 +204,12 @@ ${resultado.nivelesGanados > 0
 📦 Cajas ${nombreCaja} restantes: *${cajasRestantes}*
 🧰 Objetos almacenados: *${resultado.objetos}*
 
-🏆 *LIGA TITANS TEAM*`;
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎁 *¡PREMIOS SORPRENDENTES TE ESPERAN!*
+💎 50 o 86 diamantes
+🎟️ Pase semanal de diamantes
+👑 Pase semanal Elite`;
 
             await enviarMensajeTitans(sock, from, { text: mensaje });
 

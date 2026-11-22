@@ -176,14 +176,14 @@ Si el problema continúa, contacta a administración.
             const mensaje =
 `📢 *TITANS TEAM · MERCADO DE CAJAS*
 
-╔══════════════════════════════╗
-║       ✅ COMPRA EXITOSA      ║
-╚══════════════════════════════╝
+╔════════════════════════════════╗
+║       ✅ COMPRA EXITOSA        ║
+╚════════════════════════════════╝
 
 👤 Titán: *${resultado.nombre}*
 
 🎁 *CAJA ADQUIRIDA*
-${NOMBRES[rareza]}
+📦 ${NOMBRES[rareza]}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -195,7 +195,7 @@ ${NOMBRES[rareza]}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🔓 ¿Listo para descubrir tu recompensa?
+🔓 ¡Tu próxima recompensa está esperando!
 📖 Abre tu caja con: *!abrir ${rareza}*
 
 🎁 *¡PREMIOS SORPRENDENTES TE ESPERAN!*
